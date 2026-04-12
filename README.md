@@ -4,7 +4,7 @@
 
 # Trendflow
 
-[PyPI version](https://pypi.org/project/trendflow/)
+[![PyPI version](https://img.shields.io/pypi/v/trendflow.svg)](https://pypi.org/project/trendflow/)
 
 A type-safe Python library for querying, streaming, and exporting Google Trends data
 
