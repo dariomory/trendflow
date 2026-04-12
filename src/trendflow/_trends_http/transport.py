@@ -15,6 +15,28 @@ logger = logging.getLogger(__name__)
 Method = Literal["get", "post"]
 
 
+def _normalize_timeout(timeout: httpx.Timeout | tuple[float, float] | float) -> httpx.Timeout:
+    """Coerce session timeout values to :class:`httpx.Timeout` (ty / httpx 0.28 compatible)."""
+    if isinstance(timeout, httpx.Timeout):
+        return timeout
+    if isinstance(timeout, tuple):
+        a, b = float(timeout[0]), float(timeout[1])
+        return httpx.Timeout(connect=a, read=b)
+    return httpx.Timeout(float(timeout))
+
+
+def _extra_for_httpx(extra: Mapping[str, Any]) -> dict[str, Any]:
+    """Map legacy ``proxies`` dict to httpx 0.28 ``proxy`` (single URL)."""
+    out = {k: v for k, v in extra.items() if k != "proxies"}
+    if "proxies" in extra:
+        px = extra["proxies"]
+        if isinstance(px, dict) and px:
+            out["proxy"] = next(iter(px.values()))
+        elif px is not None:
+            out["proxy"] = px
+    return out
+
+
 def _json_content_type(content_type: str) -> bool:
     ct = content_type.lower()
     return "application/json" in ct or "application/javascript" in ct or "text/javascript" in ct
@@ -36,7 +58,7 @@ class TrendsJsonTransport:
     ) -> None:
         self._hl = hl
         self._tz = tz
-        self.timeout = timeout
+        self.timeout = _normalize_timeout(timeout)
         self.headers = headers
         self._extra_client_args = dict(extra_client_args)
         self._proxy_urls = proxy_urls
@@ -56,20 +78,21 @@ class TrendsJsonTransport:
         while True:
             if "proxies" in self._extra_client_args:
                 try:
-                    r = httpx.get(url, timeout=self.timeout, **self._extra_client_args)
+                    r = httpx.get(url, timeout=self.timeout, **_extra_for_httpx(self._extra_client_args))
                     return {k: v for k, v in r.cookies.items() if k == "NID"}
                 except Exception:
                     continue
-            proxy_map: dict[str, str] | None = None
+            proxy_url: str | None = None
             if self._proxy_urls:
-                p = self._proxy_urls[self._proxy_index]
-                proxy_map = {"https://": p, "http://": p}
+                proxy_url = self._proxy_urls[self._proxy_index]
             try:
+                get_kw = _extra_for_httpx(self._extra_client_args)
+                if proxy_url is not None:
+                    get_kw["proxy"] = proxy_url
                 r = httpx.get(
                     url,
                     timeout=self.timeout,
-                    proxies=proxy_map,
-                    **{k: v for k, v in self._extra_client_args.items() if k != "proxies"},
+                    **get_kw,
                 )
                 return {k: v for k, v in r.cookies.items() if k == "NID"}
             except httpx.ProxyError:
@@ -96,11 +119,10 @@ class TrendsJsonTransport:
         trim_chars: int = 0,
         **kwargs: Any,
     ) -> Any:
-        proxy_map: dict[str, str] | None = None
+        proxy_url: str | None = None
         if self._proxy_urls:
             self.cookies = self._fetch_nid_cookies()
-            p = self._proxy_urls[self._proxy_index]
-            proxy_map = {"https://": p, "http://": p}
+            proxy_url = self._proxy_urls[self._proxy_index]
 
         transport = httpx.HTTPTransport(retries=self._retries) if self._retries > 0 else None
 
@@ -108,12 +130,13 @@ class TrendsJsonTransport:
             "timeout": self.timeout,
             "headers": dict(self.headers),
         }
-        if proxy_map is not None:
-            client_kwargs["proxies"] = proxy_map
+        if proxy_url is not None:
+            client_kwargs["proxy"] = proxy_url
         if transport is not None:
             client_kwargs["transport"] = transport
 
-        req_kwargs = {**kwargs, **self._extra_client_args}
+        merged = {**self._extra_client_args, **kwargs}
+        req_kwargs = _extra_for_httpx(merged)
         with httpx.Client(**client_kwargs) as client:
             if method == "post":
                 response = client.post(url, cookies=self.cookies, **req_kwargs)
