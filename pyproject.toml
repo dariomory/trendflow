@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "trendflow"
 version = "0.1.0"
-description = "A Python library for fetching, analyzing, and exporting Google T"
+description = "A type-safe Python library for querying, streaming, and exporting Google Trends data"
 readme = "README.md"
 authors = [
   {name = "Dario Mory", email = "dario@mory.dev"}
@@ -19,8 +19,10 @@ classifiers = [
 ]
 license = {text = "MIT"}
 dependencies = [
-  "typer",
+  "httpx",
+  "pandas",
   "rich",
+  "typer",
 ]
 requires-python = ">= 3.12"
 

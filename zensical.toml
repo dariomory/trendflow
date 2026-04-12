@@ -5,13 +5,14 @@ repo_url = "https://github.com/dariomory/trendflow"
 repo_name = "dariomory/trendflow"
 nav = [
   { "Home" = "index.md" },
+  { "Architecture" = "architecture.md" },
   { "Installation" = "installation.md" },
   { "Usage" = "usage.md" },
   { "API Reference" = "api.md" },
 ]
 
 [project.theme]
-logo = "logo.jpg"
+logo = "logo.png"
 
 [[project.theme.palette]]
 media = "(prefers-color-scheme: light)"
