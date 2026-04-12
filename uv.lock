@@ -742,7 +742,7 @@ wheels = [
 ]
 
 [[package]]
-name = "trendflow"
+name = "trendflow-py"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

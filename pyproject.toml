@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "trendflow"
+name = "trendflow-py"
 version = "0.1.0"
 description = "A type-safe Python library for querying, streaming, and exporting Google Trends data"
 readme = "README.md"
@@ -93,6 +93,9 @@ exclude_also = [
     "raise NotImplementedError",
     "\\.\\.\\.",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/trendflow"]
 
 [tool.uv]
 package = true
