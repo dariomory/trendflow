@@ -1,7 +1,7 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class Region(str, Enum):
+class Region(StrEnum):
     """ISO-style geo codes for Google Trends (`hl` / `geo`). Empty string is worldwide."""
 
     WORLDWIDE = ""
@@ -23,8 +23,8 @@ class Region(str, Enum):
     TR = "TR"
 
 
-class Timeframe(str, Enum):
-    """Time ranges accepted by Google Trends (pytrends `timeframe` strings)."""
+class Timeframe(StrEnum):
+    """Time ranges accepted by Google Trends."""
 
     PAST_DAY = "now 1-d"
     PAST_WEEK = "now 7-d"
@@ -32,7 +32,7 @@ class Timeframe(str, Enum):
     PAST_5_YEARS = "today 5-y"
 
 
-class Resolution(str, Enum):
+class Resolution(StrEnum):
     """Granularity for regional interest breakdowns."""
 
     COUNTRY = "COUNTRY"
@@ -40,7 +40,7 @@ class Resolution(str, Enum):
     CITY = "CITY"
 
 
-class ExportFormat(str, Enum):
+class ExportFormat(StrEnum):
     """Supported export targets for tabular trend data."""
 
     CSV = "csv"
