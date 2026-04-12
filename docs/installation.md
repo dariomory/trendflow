@@ -5,14 +5,16 @@
 To install Trendflow, run this command in your terminal:
 
 ```sh
-uv add trendflow
+uv add trendflow-py
 ```
 
 Or if you prefer to use `pip`:
 
 ```sh
-pip install trendflow
+pip install trendflow-py
 ```
+
+The distribution on PyPI is `trendflow-py`; you still `import trendflow` in Python.
 
 ## From source
 

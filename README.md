@@ -4,12 +4,12 @@
 
 # Trendflow
 
-[![PyPI version](https://img.shields.io/pypi/v/trendflow.svg)](https://pypi.org/project/trendflow/)
+[![PyPI version](https://img.shields.io/pypi/v/trendflow-py.svg)](https://pypi.org/project/trendflow-py/)
 
 A type-safe Python library for querying, streaming, and exporting Google Trends data
 
 - GitHub: [https://github.com/dariomory/trendflow/](https://github.com/dariomory/trendflow/)
-- PyPI package: [https://pypi.org/project/trendflow/](https://pypi.org/project/trendflow/)
+- PyPI package: [https://pypi.org/project/trendflow-py/](https://pypi.org/project/trendflow-py/) (install name `trendflow-py`; import as `trendflow`)
 - Created by: **[Dario Mory](https://mory.dev)** | GitHub [https://github.com/dariomory](https://github.com/dariomory) | PyPI [https://pypi.org/user/dariomory/](https://pypi.org/user/dariomory/)
 - Free software: MIT License
 
