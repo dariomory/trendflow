@@ -36,16 +36,10 @@ class InterestOverTimeResult:
         return pd.DataFrame(rows)
 
     def export(self, fmt: ExportFormat, path: str | Path) -> None:
-        """Write results to CSV or JSON (UTF-8)."""
-        path = Path(path)
-        df = self.to_dataframe()
-        if fmt == ExportFormat.CSV:
-            df.to_csv(path, index=False, encoding="utf-8")
-        elif fmt == ExportFormat.JSON:
-            df.to_json(path, orient="records", date_format="iso", indent=2)
-        else:
-            msg = f"Unsupported export format: {fmt!r}"
-            raise ValueError(msg)
+        """Write results to CSV or JSON (UTF-8) via :mod:`trendflow._exporters`."""
+        from trendflow._exporters import export_interest_over_time
+
+        export_interest_over_time(self, fmt, Path(path))
 
 
 @dataclass(frozen=True)
