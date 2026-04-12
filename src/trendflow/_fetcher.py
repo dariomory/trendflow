@@ -43,23 +43,23 @@ def _hl_from_language(language: str) -> str:
 class TrendsFetcher(Protocol):
     """Strategy for retrieving Trends data (swap in tests or alternate backends)."""
 
-    def fetch_interest_over_time(
+    def interest_over_time(
         self,
         keywords: list[str],
         timeframe: Timeframe,
         region: Region,
     ) -> InterestOverTimeResult: ...
 
-    def fetch_interest_by_region(
+    def interest_by_region(
         self,
         keyword: str,
         resolution: Resolution,
-        region: Region,
+        region: Region = Region.US,
     ) -> InterestByRegionResult: ...
 
-    def fetch_trending_now(self, region: Region) -> TrendingResult: ...
+    def trending_now(self, region: Region) -> TrendingResult: ...
 
-    def fetch_related_queries(self, keyword: str) -> RelatedResult: ...
+    def related_queries(self, keyword: str) -> RelatedResult: ...
 
 
 class GoogleTrendsFetcher:
@@ -69,7 +69,7 @@ class GoogleTrendsFetcher:
         to = (timeout, max(timeout * 2, timeout + 5))
         self._req = GoogleTrendsHttpSession(hl=_hl_from_language(language), tz=360, timeout=to)
 
-    def fetch_interest_over_time(
+    def interest_over_time(
         self,
         keywords: list[str],
         timeframe: Timeframe,
@@ -85,11 +85,11 @@ class GoogleTrendsFetcher:
         default = self._req.interest_over_time()
         return _parsers.interest_over_time_to_result(default, keywords, self._req.geo)
 
-    def fetch_interest_by_region(
+    def interest_by_region(
         self,
         keyword: str,
         resolution: Resolution,
-        region: Region,
+        region: Region = Region.US,
     ) -> InterestByRegionResult:
         self._req.build_payload(
             [keyword],
@@ -103,7 +103,7 @@ class GoogleTrendsFetcher:
             return InterestByRegionResult(keyword=keyword, resolution=resolution, rows=[])
         return _parsers.interest_by_region_to_result(default, keyword, [keyword], resolution)
 
-    def fetch_trending_now(self, region: Region) -> TrendingResult:
+    def trending_now(self, region: Region) -> TrendingResult:
         if region is Region.WORLDWIDE:
             msg = "Trending searches require a specific country; use e.g. Region.US"
             raise ValueError(msg)
@@ -114,7 +114,7 @@ class GoogleTrendsFetcher:
         titles = self._req.trending_searches(pn=pn)
         return _parsers.trending_result_from_titles(titles)
 
-    def fetch_related_queries(self, keyword: str) -> RelatedResult:
+    def related_queries(self, keyword: str) -> RelatedResult:
         self._req.build_payload(
             [keyword],
             cat=0,

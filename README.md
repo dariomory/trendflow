@@ -37,7 +37,7 @@ tf = trendflow.Client(language="en", timeout=10)
 data = tf.interest_over_time(
     keywords=["Python", "JavaScript", "Rust"],
     timeframe=Timeframe.PAST_YEAR,
-    region=Region.US
+    region=Region.US,
 )
 
 # Dataclass-backed results
@@ -45,10 +45,10 @@ print(data.keywords)        # ["Python", "JavaScript", "Rust"]
 print(data.granularity)     # "weekly"
 print(data.points)          # list of TrendPoint(date, scores: dict)
 
-# Get regional breakdown
+# Get regional breakdown (region defaults to Region.US)
 regional = tf.interest_by_region(
     keyword="Python",
-    resolution=Resolution.COUNTRY
+    resolution=Resolution.COUNTRY,
 )
 
 # Trending searches right now

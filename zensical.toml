@@ -5,6 +5,7 @@ repo_url = "https://github.com/dariomory/trendflow"
 repo_name = "dariomory/trendflow"
 nav = [
   { "Home" = "index.md" },
+  { "Architecture" = "architecture.md" },
   { "Installation" = "installation.md" },
   { "Usage" = "usage.md" },
   { "API Reference" = "api.md" },
