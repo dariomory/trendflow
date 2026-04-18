@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from trendflow.enums import ExportFormat, Region, Resolution, Timeframe
 
 

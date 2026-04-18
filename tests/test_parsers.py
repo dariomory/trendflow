@@ -6,8 +6,6 @@ import math
 from datetime import datetime, timedelta
 from typing import Any
 
-import pytest
-
 from trendflow._parsers import (
     _is_missing_value,
     _split_bracketed_ints,
@@ -26,10 +24,7 @@ from trendflow.enums import Resolution
 from trendflow.models import (
     InterestByRegionResult,
     InterestOverTimeResult,
-    RegionalInterestRow,
-    RelatedQuery,
     RelatedResult,
-    TrendingItem,
     TrendingResult,
 )
 

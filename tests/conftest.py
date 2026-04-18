@@ -6,7 +6,7 @@ from datetime import datetime
 
 import pytest
 
-from trendflow.enums import ExportFormat, Region, Resolution, Timeframe
+from trendflow.enums import Resolution
 from trendflow.models import (
     InterestByRegionResult,
     InterestOverTimeResult,

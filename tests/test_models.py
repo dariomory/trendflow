@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import tempfile
 from datetime import datetime
@@ -32,7 +33,7 @@ class TestTrendPoint:
 
     def test_frozen(self) -> None:
         point = TrendPoint(date=datetime(2024, 1, 1), scores={"Python": 80})
-        with pytest.raises(Exception):
+        with pytest.raises(dataclasses.FrozenInstanceError):
             point.date = datetime(2024, 1, 2)  # type: ignore
 
     def test_equality(self) -> None:
@@ -81,7 +82,7 @@ class TestInterestOverTimeResult:
         assert df["date"].iloc[0] == datetime(2024, 1, 1)
 
     def test_frozen(self, iot_result: InterestOverTimeResult) -> None:
-        with pytest.raises(Exception):
+        with pytest.raises(dataclasses.FrozenInstanceError):
             iot_result.keywords = ["other"]  # type: ignore
 
     def test_export_csv(self, iot_result: InterestOverTimeResult) -> None:
@@ -135,7 +136,7 @@ class TestRegionalInterestRow:
 
     def test_frozen(self) -> None:
         row = RegionalInterestRow(label="California", value=90)
-        with pytest.raises(Exception):
+        with pytest.raises(dataclasses.FrozenInstanceError):
             row.value = 100  # type: ignore
 
 
@@ -146,7 +147,7 @@ class TestInterestByRegionResult:
         assert len(ibr_result.rows) == 2
 
     def test_frozen(self, ibr_result: InterestByRegionResult) -> None:
-        with pytest.raises(Exception):
+        with pytest.raises(dataclasses.FrozenInstanceError):
             ibr_result.keyword = "other"  # type: ignore
 
     def test_empty_rows(self) -> None:
@@ -163,7 +164,7 @@ class TestTrendingItem:
 
     def test_frozen(self) -> None:
         item = TrendingItem(title="AI news", traffic="500K+", articles=[])
-        with pytest.raises(Exception):
+        with pytest.raises(dataclasses.FrozenInstanceError):
             item.title = "other"  # type: ignore
 
 
@@ -193,7 +194,7 @@ class TestRelatedQuery:
 
     def test_frozen(self) -> None:
         q = RelatedQuery(term="python tutorial", value=100)
-        with pytest.raises(Exception):
+        with pytest.raises(dataclasses.FrozenInstanceError):
             q.term = "other"  # type: ignore
 
 
