@@ -33,7 +33,7 @@ class TestTrendPoint:
     def test_frozen(self) -> None:
         point = TrendPoint(date=datetime(2024, 1, 1), scores={"Python": 80})
         with pytest.raises(Exception):
-            point.date = datetime(2024, 1, 2)  # type: ignore[misc]
+            point.date = datetime(2024, 1, 2)  # type: ignore
 
     def test_equality(self) -> None:
         dt = datetime(2024, 1, 1)
@@ -59,9 +59,7 @@ class TestInterestOverTimeResult:
         assert "Python" in df.columns
 
     def test_to_dataframe_empty_has_keyword_columns(self) -> None:
-        result = InterestOverTimeResult(
-            keywords=["A", "B", "C"], granularity="unknown", points=[]
-        )
+        result = InterestOverTimeResult(keywords=["A", "B", "C"], granularity="unknown", points=[])
         df = result.to_dataframe()
         assert list(df.columns) == ["date", "A", "B", "C"]
 
@@ -84,7 +82,7 @@ class TestInterestOverTimeResult:
 
     def test_frozen(self, iot_result: InterestOverTimeResult) -> None:
         with pytest.raises(Exception):
-            iot_result.keywords = ["other"]  # type: ignore[misc]
+            iot_result.keywords = ["other"]  # type: ignore
 
     def test_export_csv(self, iot_result: InterestOverTimeResult) -> None:
         with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as f:
@@ -138,7 +136,7 @@ class TestRegionalInterestRow:
     def test_frozen(self) -> None:
         row = RegionalInterestRow(label="California", value=90)
         with pytest.raises(Exception):
-            row.value = 100  # type: ignore[misc]
+            row.value = 100  # type: ignore
 
 
 class TestInterestByRegionResult:
@@ -149,12 +147,10 @@ class TestInterestByRegionResult:
 
     def test_frozen(self, ibr_result: InterestByRegionResult) -> None:
         with pytest.raises(Exception):
-            ibr_result.keyword = "other"  # type: ignore[misc]
+            ibr_result.keyword = "other"  # type: ignore
 
     def test_empty_rows(self) -> None:
-        result = InterestByRegionResult(
-            keyword="Python", resolution=Resolution.COUNTRY, rows=[]
-        )
+        result = InterestByRegionResult(keyword="Python", resolution=Resolution.COUNTRY, rows=[])
         assert result.rows == []
 
 
@@ -168,7 +164,7 @@ class TestTrendingItem:
     def test_frozen(self) -> None:
         item = TrendingItem(title="AI news", traffic="500K+", articles=[])
         with pytest.raises(Exception):
-            item.title = "other"  # type: ignore[misc]
+            item.title = "other"  # type: ignore
 
 
 class TestTrendingResult:
@@ -198,7 +194,7 @@ class TestRelatedQuery:
     def test_frozen(self) -> None:
         q = RelatedQuery(term="python tutorial", value=100)
         with pytest.raises(Exception):
-            q.term = "other"  # type: ignore[misc]
+            q.term = "other"  # type: ignore
 
 
 class TestRelatedResult:

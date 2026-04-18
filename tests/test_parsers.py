@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from datetime import datetime, timedelta
+from typing import Any
 
 import pytest
 
@@ -162,17 +163,13 @@ class TestInterestOverTimeToResult:
         assert result.granularity == "hourly"
 
     def test_single_geo_scores_keyed_by_keyword(self, timeline_data_weekly: dict) -> None:
-        result = interest_over_time_to_result(
-            timeline_data_weekly, ["Python", "JavaScript"], "US"
-        )
+        result = interest_over_time_to_result(timeline_data_weekly, ["Python", "JavaScript"], "US")
         for point in result.points:
             assert "Python" in point.scores
             assert "JavaScript" in point.scores
 
     def test_single_geo_score_values(self, timeline_data_weekly: dict) -> None:
-        result = interest_over_time_to_result(
-            timeline_data_weekly, ["Python", "JavaScript"], "US"
-        )
+        result = interest_over_time_to_result(timeline_data_weekly, ["Python", "JavaScript"], "US")
         assert result.points[0].scores["Python"] == 80
         assert result.points[0].scores["JavaScript"] == 70
 
@@ -204,15 +201,11 @@ class TestInterestOverTimeToResult:
         assert result.points[0].scores["Python|GB"] == 60
 
     def test_point_count_matches_timeline(self, timeline_data_weekly: dict) -> None:
-        result = interest_over_time_to_result(
-            timeline_data_weekly, ["Python", "JavaScript"], "US"
-        )
+        result = interest_over_time_to_result(timeline_data_weekly, ["Python", "JavaScript"], "US")
         assert len(result.points) == 3
 
     def test_keywords_preserved(self, timeline_data_weekly: dict) -> None:
-        result = interest_over_time_to_result(
-            timeline_data_weekly, ["Python", "JavaScript"], "US"
-        )
+        result = interest_over_time_to_result(timeline_data_weekly, ["Python", "JavaScript"], "US")
         assert result.keywords == ["Python", "JavaScript"]
 
     def test_geo_as_list_with_single_element(self, timeline_data_daily: dict) -> None:
@@ -252,23 +245,17 @@ class TestInterestByRegionRows:
         assert rows == []
 
     def test_keyword_not_in_kw_list_uses_index_zero(self) -> None:
-        data = {
-            "geoMapData": [{"geoName": "UK", "value": "[50, 80]"}]
-        }
+        data = {"geoMapData": [{"geoName": "UK", "value": "[50, 80]"}]}
         rows = interest_by_region_rows(data, "Unknown", ["Python", "JS"])
         assert rows[0].value == 50
 
     def test_selects_correct_index_for_second_keyword(self) -> None:
-        data = {
-            "geoMapData": [{"geoName": "UK", "value": "[50, 80]"}]
-        }
+        data = {"geoMapData": [{"geoName": "UK", "value": "[50, 80]"}]}
         rows = interest_by_region_rows(data, "JS", ["Python", "JS"])
         assert rows[0].value == 80
 
     def test_value_index_out_of_range_returns_zero(self) -> None:
-        data = {
-            "geoMapData": [{"geoName": "UK", "value": "[50]"}]
-        }
+        data = {"geoMapData": [{"geoName": "UK", "value": "[50]"}]}
         rows = interest_by_region_rows(data, "JS", ["Python", "JS"])
         assert rows[0].value == 0
 
@@ -302,7 +289,7 @@ class TestTrendingTitlesToItems:
         assert trending_titles_to_items([]) == []
 
     def test_non_string_titles_coerced(self) -> None:
-        items = trending_titles_to_items([42, None])  # type: ignore[list-item]
+        items = trending_titles_to_items([42, None])  # type: ignore
         assert items[0].title == "42"
         assert items[1].title == "None"
 
@@ -423,7 +410,7 @@ class TestRelatedQueriesToResult:
         assert result.rising == []
 
     def test_keyword_found(self) -> None:
-        raw = {
+        raw: dict[str, dict[str, list[dict[str, Any]] | None]] = {
             "Python": {
                 "top": [{"query": "python tutorial", "value": 100}],
                 "rising": [{"query": "python ai", "formattedValue": "+250%"}],
@@ -436,7 +423,7 @@ class TestRelatedQueriesToResult:
         assert result.rising[0].breakout == "+250%"
 
     def test_keyword_not_found_single_bucket_fallback(self) -> None:
-        raw = {
+        raw: dict[str, dict[str, list[dict[str, Any]] | None]] = {
             "OtherKW": {
                 "top": [{"query": "something", "value": 50}],
                 "rising": [],
@@ -447,7 +434,7 @@ class TestRelatedQueriesToResult:
         assert result.top[0].term == "something"
 
     def test_keyword_not_found_multiple_buckets_returns_empty(self) -> None:
-        raw = {
+        raw: dict[str, dict[str, list[dict[str, Any]] | None]] = {
             "A": {"top": [{"query": "a", "value": 1}], "rising": []},
             "B": {"top": [{"query": "b", "value": 2}], "rising": []},
         }
@@ -466,7 +453,7 @@ class TestRelatedQueriesToResult:
         assert result.rising == []
 
     def test_returns_related_result_type(self) -> None:
-        raw = {"Python": {"top": [], "rising": []}}
+        raw: dict[str, dict[str, list[dict[str, Any]] | None]] = {"Python": {"top": [], "rising": []}}
         result = related_queries_to_result(raw, "Python")
         assert isinstance(result, RelatedResult)
 

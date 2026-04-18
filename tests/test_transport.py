@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, MutableMapping
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -101,20 +103,27 @@ class TestJsonContentType:
         assert _json_content_type("Application/JSON") is True
 
 
-def _make_transport(**kwargs) -> TrendsJsonTransport:
+def _make_transport(
+    *,
+    hl: str = "en-US",
+    tz: int = 360,
+    timeout: httpx.Timeout | tuple[float, float] | float = (2.0, 5.0),
+    headers: MutableMapping[str, str] | None = None,
+    extra_client_args: Mapping[str, Any] | None = None,
+    proxy_urls: list[str] | None = None,
+    retries: int = 0,
+) -> TrendsJsonTransport:
     """Build a TrendsJsonTransport with _fetch_nid_cookies patched out."""
-    defaults = dict(
-        hl="en-US",
-        tz=360,
-        timeout=(2.0, 5.0),
-        headers={},
-        extra_client_args={},
-        proxy_urls=[],
-        retries=0,
-    )
-    defaults.update(kwargs)
     with patch.object(TrendsJsonTransport, "_fetch_nid_cookies", return_value={"NID": "test"}):
-        transport = TrendsJsonTransport(**defaults)
+        transport = TrendsJsonTransport(
+            hl=hl,
+            tz=tz,
+            timeout=timeout,
+            headers=headers if headers is not None else {},
+            extra_client_args=extra_client_args if extra_client_args is not None else {},
+            proxy_urls=proxy_urls if proxy_urls is not None else [],
+            retries=retries,
+        )
     return transport
 
 
@@ -198,7 +207,7 @@ class TestTrendsJsonTransportRequestJson:
 
     def test_trim_chars_strips_prefix(self) -> None:
         transport = _make_transport()
-        response = self._mock_response(200, "application/json", ")]}'\n{\"x\": 1}")
+        response = self._mock_response(200, "application/json", ')]}\'\n{"x": 1}')
 
         with patch("httpx.Client") as mock_client_cls:
             mock_client = MagicMock()

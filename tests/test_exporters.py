@@ -179,7 +179,7 @@ class TestExportInterestOverTime:
 
     def test_unsupported_format_raises_value_error(self, result_with_points: InterestOverTimeResult) -> None:
         with pytest.raises(ValueError, match="Unsupported export format"):
-            export_interest_over_time(result_with_points, "xml", Path("/tmp/out.xml"))  # type: ignore[arg-type]
+            export_interest_over_time(result_with_points, "xml", Path("/tmp/out.xml"))  # type: ignore
 
     def test_exporters_registry_has_csv_and_json(self) -> None:
         assert ExportFormat.CSV in INTEREST_OVER_TIME_EXPORTERS

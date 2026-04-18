@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -51,14 +52,14 @@ class TestTrendingPnMapping:
                 assert region in TRENDING_PN, f"Missing TRENDING_PN entry for {region!r}"
 
 
-def _make_fetcher() -> GoogleTrendsFetcher:
-    """Build a GoogleTrendsFetcher with GoogleTrendsHttpSession patched out."""
+def _make_fetcher() -> tuple[GoogleTrendsFetcher, Any]:
+    """Return (fetcher, mock_req) with GoogleTrendsHttpSession patched out."""
     with patch("trendflow._fetcher.GoogleTrendsHttpSession") as mock_session_cls:
         mock_session = MagicMock()
         mock_session.geo = "US"
         mock_session_cls.return_value = mock_session
         fetcher = GoogleTrendsFetcher()
-    return fetcher
+    return fetcher, mock_session
 
 
 class TestGoogleTrendsFetcherInit:
@@ -97,11 +98,11 @@ class TestGoogleTrendsFetcherInit:
 
 class TestTrendsFetcherProtocol:
     def test_google_trends_fetcher_implements_protocol(self) -> None:
-        fetcher = _make_fetcher()
+        fetcher, _ = _make_fetcher()
         assert isinstance(fetcher, TrendsFetcher)
 
     def test_protocol_methods_exist(self) -> None:
-        fetcher = _make_fetcher()
+        fetcher, _ = _make_fetcher()
         assert hasattr(fetcher, "interest_over_time")
         assert hasattr(fetcher, "interest_by_region")
         assert hasattr(fetcher, "trending_now")
@@ -110,10 +111,9 @@ class TestTrendsFetcherProtocol:
 
 class TestInterestOverTime:
     def test_calls_build_payload_with_correct_args(self) -> None:
-        fetcher = _make_fetcher()
-        mock_default = {"timelineData": []}
-        fetcher._req.interest_over_time.return_value = mock_default
-        fetcher._req.geo = "US"
+        fetcher, req = _make_fetcher()
+        req.interest_over_time.return_value = {"timelineData": []}
+        req.geo = "US"
 
         fetcher.interest_over_time(
             keywords=["Python"],
@@ -121,7 +121,7 @@ class TestInterestOverTime:
             region=Region.US,
         )
 
-        fetcher._req.build_payload.assert_called_once_with(
+        req.build_payload.assert_called_once_with(
             ["Python"],
             cat=0,
             timeframe=Timeframe.PAST_YEAR.value,
@@ -130,9 +130,9 @@ class TestInterestOverTime:
         )
 
     def test_returns_interest_over_time_result(self) -> None:
-        fetcher = _make_fetcher()
-        fetcher._req.interest_over_time.return_value = {"timelineData": []}
-        fetcher._req.geo = "US"
+        fetcher, req = _make_fetcher()
+        req.interest_over_time.return_value = {"timelineData": []}
+        req.geo = "US"
 
         result = fetcher.interest_over_time(
             keywords=["Python"],
@@ -143,9 +143,9 @@ class TestInterestOverTime:
         assert isinstance(result, InterestOverTimeResult)
 
     def test_passes_geo_from_session(self) -> None:
-        fetcher = _make_fetcher()
-        fetcher._req.interest_over_time.return_value = {"timelineData": []}
-        fetcher._req.geo = ["US"]
+        fetcher, req = _make_fetcher()
+        req.interest_over_time.return_value = {"timelineData": []}
+        req.geo = ["US"]
 
         result = fetcher.interest_over_time(
             keywords=["Python"],
@@ -158,8 +158,8 @@ class TestInterestOverTime:
 
 class TestInterestByRegion:
     def test_returns_empty_result_when_no_geo_map_data(self) -> None:
-        fetcher = _make_fetcher()
-        fetcher._req.interest_by_region.return_value = {}
+        fetcher, req = _make_fetcher()
+        req.interest_by_region.return_value = {}
 
         result = fetcher.interest_by_region(
             keyword="Python",
@@ -172,12 +172,12 @@ class TestInterestByRegion:
         assert result.keyword == "Python"
 
     def test_calls_build_payload_with_keyword(self) -> None:
-        fetcher = _make_fetcher()
-        fetcher._req.interest_by_region.return_value = {}
+        fetcher, req = _make_fetcher()
+        req.interest_by_region.return_value = {}
 
         fetcher.interest_by_region(keyword="Rust", resolution=Resolution.REGION, region=Region.US)
 
-        fetcher._req.build_payload.assert_called_once_with(
+        req.build_payload.assert_called_once_with(
             ["Rust"],
             cat=0,
             timeframe=Timeframe.PAST_YEAR.value,
@@ -186,14 +186,10 @@ class TestInterestByRegion:
         )
 
     def test_returns_parsed_result_when_data_present(self) -> None:
-        fetcher = _make_fetcher()
-        fetcher._req.interest_by_region.return_value = {
-            "geoMapData": [{"geoName": "California", "value": "[90]"}]
-        }
+        fetcher, req = _make_fetcher()
+        req.interest_by_region.return_value = {"geoMapData": [{"geoName": "California", "value": "[90]"}]}
 
-        result = fetcher.interest_by_region(
-            keyword="Python", resolution=Resolution.REGION, region=Region.US
-        )
+        result = fetcher.interest_by_region(keyword="Python", resolution=Resolution.REGION, region=Region.US)
 
         assert isinstance(result, InterestByRegionResult)
         assert len(result.rows) == 1
@@ -202,22 +198,22 @@ class TestInterestByRegion:
 
 class TestTrendingNow:
     def test_worldwide_raises_value_error(self) -> None:
-        fetcher = _make_fetcher()
+        fetcher, _ = _make_fetcher()
         with pytest.raises(ValueError, match="specific country"):
             fetcher.trending_now(region=Region.WORLDWIDE)
 
     def test_valid_region_calls_trending_searches(self) -> None:
-        fetcher = _make_fetcher()
-        fetcher._req.trending_searches.return_value = ["AI", "Python"]
+        fetcher, req = _make_fetcher()
+        req.trending_searches.return_value = ["AI", "Python"]
 
         result = fetcher.trending_now(region=Region.US)
 
-        fetcher._req.trending_searches.assert_called_once_with(pn="united_states")
+        req.trending_searches.assert_called_once_with(pn="united_states")
         assert isinstance(result, TrendingResult)
 
     def test_returns_correct_titles(self) -> None:
-        fetcher = _make_fetcher()
-        fetcher._req.trending_searches.return_value = ["AI tools", "Python 4"]
+        fetcher, req = _make_fetcher()
+        req.trending_searches.return_value = ["AI tools", "Python 4"]
 
         result = fetcher.trending_now(region=Region.US)
 
@@ -225,30 +221,30 @@ class TestTrendingNow:
         assert result.results[1].title == "Python 4"
 
     def test_pn_lookup_for_gb(self) -> None:
-        fetcher = _make_fetcher()
-        fetcher._req.trending_searches.return_value = []
+        fetcher, req = _make_fetcher()
+        req.trending_searches.return_value = []
 
         fetcher.trending_now(region=Region.GB)
 
-        fetcher._req.trending_searches.assert_called_once_with(pn="united_kingdom")
+        req.trending_searches.assert_called_once_with(pn="united_kingdom")
 
     def test_pn_lookup_for_de(self) -> None:
-        fetcher = _make_fetcher()
-        fetcher._req.trending_searches.return_value = []
+        fetcher, req = _make_fetcher()
+        req.trending_searches.return_value = []
 
         fetcher.trending_now(region=Region.DE)
 
-        fetcher._req.trending_searches.assert_called_once_with(pn="germany")
+        req.trending_searches.assert_called_once_with(pn="germany")
 
 
 class TestRelatedQueries:
     def test_calls_build_payload_with_keyword(self) -> None:
-        fetcher = _make_fetcher()
-        fetcher._req.related_queries.return_value = {}
+        fetcher, req = _make_fetcher()
+        req.related_queries.return_value = {}
 
         fetcher.related_queries(keyword="Python")
 
-        fetcher._req.build_payload.assert_called_once_with(
+        req.build_payload.assert_called_once_with(
             ["Python"],
             cat=0,
             timeframe=Timeframe.PAST_YEAR.value,
@@ -257,8 +253,8 @@ class TestRelatedQueries:
         )
 
     def test_returns_related_result(self) -> None:
-        fetcher = _make_fetcher()
-        fetcher._req.related_queries.return_value = {
+        fetcher, req = _make_fetcher()
+        req.related_queries.return_value = {
             "Python": {
                 "top": [{"query": "python tutorial", "value": 100}],
                 "rising": [],
@@ -272,8 +268,8 @@ class TestRelatedQueries:
         assert result.top[0].term == "python tutorial"
 
     def test_empty_raw_returns_empty_result(self) -> None:
-        fetcher = _make_fetcher()
-        fetcher._req.related_queries.return_value = {}
+        fetcher, req = _make_fetcher()
+        req.related_queries.return_value = {}
 
         result = fetcher.related_queries(keyword="Python")
 

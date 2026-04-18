@@ -99,13 +99,13 @@ class TestBuildPayload:
         session = _make_session()
         with pytest.raises(ValueError, match="gprop"):
             with patch.object(session, "_tokens"):
-                session.build_payload(["Python"], gprop="invalid")  # type: ignore[arg-type]
+                session.build_payload(["Python"], gprop="invalid")  # type: ignore
 
     def test_valid_gprop_values(self) -> None:
         session = _make_session()
         for gprop in ("", "images", "news", "youtube", "froogle"):
             with patch.object(session, "_tokens"):
-                session.build_payload(["Python"], gprop=gprop)  # type: ignore[arg-type]
+                session.build_payload(["Python"], gprop=gprop)
 
     def test_kw_list_stored(self) -> None:
         session = _make_session()
@@ -165,22 +165,18 @@ class TestTopCharts:
     def test_none_date_raises_value_error(self) -> None:
         session = _make_session()
         with pytest.raises(ValueError):
-            session.top_charts(None)  # type: ignore[arg-type]
+            session.top_charts(None)  # type: ignore
 
     def test_valid_int_year(self) -> None:
         session = _make_session()
-        mock_response = {
-            "topCharts": [{"listItems": [{"title": "item1"}]}]
-        }
+        mock_response = {"topCharts": [{"listItems": [{"title": "item1"}]}]}
         with patch.object(session, "_get_data", return_value=mock_response):
             result = session.top_charts(2023)
         assert result == [{"title": "item1"}]
 
     def test_valid_string_year(self) -> None:
         session = _make_session()
-        mock_response = {
-            "topCharts": [{"listItems": [{"title": "item1"}]}]
-        }
+        mock_response = {"topCharts": [{"listItems": [{"title": "item1"}]}]}
         with patch.object(session, "_get_data", return_value=mock_response):
             result = session.top_charts("2023")
         assert result == [{"title": "item1"}]

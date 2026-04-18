@@ -62,9 +62,7 @@ def region_rows() -> list[RegionalInterestRow]:
 
 @pytest.fixture
 def ibr_result(region_rows: list[RegionalInterestRow]) -> InterestByRegionResult:
-    return InterestByRegionResult(
-        keyword="Python", resolution=Resolution.REGION, rows=region_rows
-    )
+    return InterestByRegionResult(keyword="Python", resolution=Resolution.REGION, rows=region_rows)
 
 
 @pytest.fixture
