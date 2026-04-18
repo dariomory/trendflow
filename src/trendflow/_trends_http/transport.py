@@ -21,7 +21,7 @@ def _normalize_timeout(timeout: httpx.Timeout | tuple[float, float] | float) -> 
         return timeout
     if isinstance(timeout, tuple):
         a, b = float(timeout[0]), float(timeout[1])
-        return httpx.Timeout(connect=a, read=b)
+        return httpx.Timeout(b, connect=a, read=b)
     return httpx.Timeout(float(timeout))
 
 
