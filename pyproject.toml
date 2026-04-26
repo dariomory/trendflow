@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "trendflow-py"
-version = "0.1.0"
+version = "0.1.1"
 description = "A type-safe Python library for querying, streaming, and exporting Google Trends data"
 readme = "README.md"
 authors = [
