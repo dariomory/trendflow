@@ -71,24 +71,31 @@ data.to_dataframe()  # pandas DataFrame
 
 ## Feature Parity
 
-Trendflow also ships as a JavaScript/TypeScript library: [trendflow-js](https://github.com/dariomory/trendflow-js) ([npm: `trendflow`](https://www.npmjs.com/package/trendflow)).
+Trendflow also ships as a JavaScript/TypeScript library: [`trendflow-js`](https://github.com/dariomory/trendflow-js) ([npm: `trendflow`](https://www.npmjs.com/package/trendflow)).
 
-| Feature               | Python (`trendflow-py`) | JS (`trendflow`) |
-|-----------------------|:-----------------------:|:----------------:|
-| Interest over time    | ✅                      | ✅               |
-| Interest by region    | ✅                      | ✅               |
-| Trending now          | ✅ [†](#trending-now)   | ✅ [†](#trending-now) |
-| Trending growth %/volume | ✅                   | ✅               |
-| Related queries       | ✅                      | ✅               |
-| CSV/JSON export       | ✅                      | ✅               |
-| Proxy support         | ✅                      | ✅               |
-| Automatic proxy pool  | ❌ N/A                  | ✅               |
-| pandas DataFrame      | ✅                      | ❌ N/A           |
-| Plain-object rows     | ❌ N/A                  | ✅ `toArray()`   |
-| CLI                   | ✅                      | 🔜 planned       |
+Current: [`trendflow-py`](https://github.com/dariomory/trendflow) 0.2.0 · [`trendflow`](https://github.com/dariomory/trendflow-js) 0.1.0. Versions are independent; each changelog cross-references the sibling release.
 
-<a id="trending-now"></a>
-† Google retired the `hottrends/visualize/internal/data` endpoint, along with
+| Feature | Python — [`trendflow-py`](https://pypi.org/project/trendflow-py/) | JS — [`trendflow`](https://www.npmjs.com/package/trendflow) |
+|---------|:----------------------------------:|:---------------------------:|
+| Interest over time | ✅ | ✅ |
+| Interest by region | ✅ | ✅ |
+| Trending now | ✅ | ✅ |
+| Trending growth % and volume | ✅ | ✅ |
+| Trending for any country code | ✅ | ✅ |
+| Related queries | ✅ | ✅ |
+| CSV / JSON export | ✅ | ✅ |
+| Rotating proxy pool | ✅ | ✅ |
+| Browser User-Agent by default | ✅ | ✅ |
+| Full geo hierarchy | ✅ `geo_list()` | ✅ `geoList()` |
+| Overridable RPC ids | ✅ | ✅ |
+| pandas DataFrame | ✅ `to_dataframe()` | ❌ N/A |
+| Plain-object rows | ❌ N/A | ✅ `toArray()` |
+| ESM + CommonJS + types | ❌ N/A | ✅ |
+| CLI | ✅ | 🔜 planned |
+
+### Trending now
+
+Google retired the `hottrends/visualize/internal/data` endpoint, along with
 `api/dailytrends` and `api/realtimetrends`; all three now return HTTP 404. `trending_now()`
 therefore runs on the `batchexecute` RPC that trends.google.com itself uses, which returns
 more than the old endpoint did:
@@ -159,6 +166,12 @@ Rotation is skipped for errors a different IP cannot fix, such as a `404` or a r
 
 Residential proxies are what actually clears Google's `429`. Two providers verified against
 this library:
+
+<p align="center">
+  <a href="https://decodo.com/"><img src="docs/proxies/decodo.svg" alt="Decodo" height="56"/></a>
+  &nbsp;&nbsp;
+  <a href="https://oxylabs.io/"><img src="docs/proxies/oxylabs.svg" alt="Oxylabs" height="56"/></a>
+</p>
 
 | Provider | Notes | Endpoint format |
 |----------|-------|-----------------|

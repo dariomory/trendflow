@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import random
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -140,7 +140,10 @@ class BatchExecuteClient:
             rows = data[0][0][1]
         except (TypeError, IndexError, KeyError):
             return []
-        return list(rows) if isinstance(rows, list) else []
+        if not isinstance(rows, list):
+            return []
+        # The payload is untyped JSON; the parser defends against malformed rows.
+        return cast("list[list[Any]]", rows)
 
     def geo_list(self) -> Any:
         """The full geo hierarchy: ``[code, name, slug]`` per country, each with subregions."""

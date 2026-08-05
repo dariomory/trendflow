@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -62,12 +63,12 @@ class TestShouldRotate:
         assert _should_rotate(OSError("connection reset")) is True
 
 
-def _fetcher_with_pool(proxies: list[str], **kwargs: object) -> tuple[GoogleTrendsFetcher, MagicMock]:
+def _fetcher_with_pool(proxies: list[str], **kwargs: Any) -> tuple[GoogleTrendsFetcher, MagicMock]:
     """Build a fetcher whose session is a mock, so rotation can be driven directly."""
     with patch("trendflow._fetcher.GoogleTrendsHttpSession") as session_cls:
         session = MagicMock()
         session_cls.return_value = session
-        fetcher = GoogleTrendsFetcher(proxies=proxies, **kwargs)  # type: ignore[arg-type]
+        fetcher = GoogleTrendsFetcher(proxies=proxies, **kwargs)
     return fetcher, session
 
 
