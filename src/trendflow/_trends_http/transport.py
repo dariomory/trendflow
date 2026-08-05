@@ -111,6 +111,27 @@ class TrendsJsonTransport:
         else:
             self._proxy_index = 0
 
+    def set_proxy(self, proxy_url: str) -> None:
+        """Pin a specific proxy and drop the cookie jar, which belongs to the old exit IP."""
+        self._proxy_urls = [proxy_url]
+        self._proxy_index = 0
+        self.reset_cookies()
+
+    def reset_cookies(self) -> None:
+        """Drop the cookie jar so the next request re-seeds it."""
+        self.cookies = {}
+
+    def ensure_cookies(self) -> None:
+        """Seed the cookie jar once; subsequent requests reuse it."""
+        if not self.cookies:
+            self.cookies = self._fetch_nid_cookies()
+
+    def _refresh_cookies(self, response: httpx.Response) -> None:
+        """Google rotates ``NID`` on most responses; keep the freshest one."""
+        fresh = {k: v for k, v in response.cookies.items() if k == "NID"}
+        if fresh:
+            self.cookies = fresh
+
     def request_json(
         self,
         url: str,
@@ -119,10 +140,9 @@ class TrendsJsonTransport:
         trim_chars: int = 0,
         **kwargs: Any,
     ) -> Any:
-        proxy_url: str | None = None
-        if self._proxy_urls:
-            self.cookies = self._fetch_nid_cookies()
-            proxy_url = self._proxy_urls[self._proxy_index]
+        proxy_url: str | None = self._proxy_urls[self._proxy_index] if self._proxy_urls else None
+
+        self.ensure_cookies()
 
         transport = httpx.HTTPTransport(retries=self._retries) if self._retries > 0 else None
 
@@ -143,9 +163,10 @@ class TrendsJsonTransport:
             else:
                 response = client.get(url, cookies=self.cookies, **req_kwargs)
 
+        self._refresh_cookies(response)
+
         ct = response.headers.get("content-type") or ""
         if response.status_code == 200 and _json_content_type(ct):
-            self.advance_proxy()
             return json.loads(response.text[trim_chars:])
         if response.status_code == HTTP_TOO_MANY_REQUESTS:
             raise TooManyRequestsError.from_response(response)

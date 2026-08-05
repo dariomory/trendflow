@@ -262,7 +262,14 @@ class TestTrendsJsonTransportRequestJson:
             with pytest.raises(ResponseError):
                 transport.request_json("https://example.com", "get")
 
-    def test_successful_request_advances_proxy(self) -> None:
+    def test_successful_request_keeps_the_pinned_proxy(self) -> None:
+        """
+        A request must not rotate the proxy on its own.
+
+        Google binds the NID cookie and the widget token to the exit IP that requested them,
+        so a query whose follow-up call leaves from a different IP is answered with a 429.
+        Rotation is driven per query by :class:`trendflow._proxy.ProxyPool` instead.
+        """
         transport = _make_transport(proxy_urls=["http://p1:8080", "http://p2:8080"])
         response = self._mock_response(200, "application/json", "{}")
 
@@ -275,5 +282,7 @@ class TestTrendsJsonTransportRequestJson:
 
             with patch.object(transport, "_fetch_nid_cookies", return_value={}):
                 transport.request_json("https://example.com", "get")
+                transport.request_json("https://example.com", "get")
 
-        assert transport.proxy_index == 1
+        assert transport.proxy_index == 0
+        assert mock_client_cls.call_args.kwargs["proxy"] == "http://p1:8080"

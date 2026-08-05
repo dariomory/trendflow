@@ -79,10 +79,12 @@ class BatchExecuteClient:
         timeout: httpx.Timeout | tuple[float, float] | float,
         headers: dict[str, str],
         rpc_ids: Mapping[str, str] | None = None,
+        proxy: str | None = None,
     ) -> None:
         self.hl = hl
         self.timeout = timeout
         self.headers = headers
+        self.proxy = proxy
         ids = dict(rpc_ids or {})
         self.trending_rpc_id = ids.get("trending", RPC_TRENDING)
         self.geo_list_rpc_id = ids.get("geo_list", RPC_GEO_LIST)
@@ -111,7 +113,11 @@ class BatchExecuteClient:
             "x-same-domain": "1",
         }
 
-        with httpx.Client(timeout=self.timeout, headers=headers) as client:
+        client_kwargs: dict[str, Any] = {"timeout": self.timeout, "headers": headers}
+        if self.proxy:
+            client_kwargs["proxy"] = self.proxy
+
+        with httpx.Client(**client_kwargs) as client:
             response = client.post(BATCH_EXECUTE, params=params, data=data)
 
         if response.status_code == HTTP_TOO_MANY_REQUESTS:

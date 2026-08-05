@@ -110,12 +110,65 @@ Pass `window=TRENDING_WINDOW_TOP` for the highest-volume searches instead of the
 fastest-growing ones. `window` is an undocumented Google parameter; other integers between
 4 and 12 also return data over varying recency windows.
 
+<a id="rate-limits"></a>
 ### Rate limits
 
-Google returns HTTP 429 to requests carrying a default Python HTTP client User-Agent
-regardless of how few requests you have made, so the library sends a browser User-Agent by
-default. If an IP itself is flagged, every request gets a `429` no matter the headers —
-route through a residential proxy to recover.
+Google Trends aggressively rate-limits datacenter and shared IPs, so `429` is common even on
+your first request of the day. Two things matter:
+
+1. **User-Agent.** Google returns `429` to the default agent strings Python HTTP clients
+   send, no matter how few requests you have made. This library sends a browser User-Agent
+   by default for exactly that reason.
+2. **IP reputation.** Once an IP is flagged, every request gets `429` regardless of headers.
+   Route through a residential proxy to recover.
+
+### Using a proxy pool
+
+Pass a list of proxy URLs and the client rotates through them automatically, moving to the
+next one whenever a query is refused:
+
+```python
+import trendflow
+from trendflow import Region
+
+tf = trendflow.Client(
+    proxies=[
+        "http://user:pass@gate.decodo.com:7000",
+        "http://user:pass@pr.oxylabs.io:7777",
+    ],
+    max_proxy_attempts=3,  # defaults to the pool size, capped at 5
+    on_proxy_rotate=lambda attempt, error: print(f"rotated after {attempt}: {error!r}"),
+)
+
+trending = tf.trending_now(Region.US)
+print(tf.current_proxy)  # the proxy that answered
+```
+
+Mixing providers in one pool is fine; they are just URLs.
+
+**Rotation happens per query, not per request — this matters.** Google binds the `NID`
+cookie and the widget token to the IP that requested them, so a single query must complete
+on one exit IP; sending the follow-up `widgetdata` call from a different IP earns an instant
+`429`. The pool pins one proxy for the whole query and advances only on failure, re-seeding
+the cookie jar each time. For the same reason, point the pool at **sticky sessions** rather
+than per-request rotating endpoints if your provider offers the choice.
+
+Rotation is skipped for errors a different IP cannot fix, such as a `404` or a renamed RPC.
+
+#### Where to get proxies
+
+Residential proxies are what actually clears Google's `429`. Two providers verified against
+this library:
+
+| Provider | Notes | Endpoint format |
+|----------|-------|-----------------|
+| [Decodo](https://decodo.com/) (formerly Smartproxy) | Cheapest entry tier; pay-as-you-go available. Used to verify this library's live tests. | `http://user:pass@gate.decodo.com:7000` |
+| [Oxylabs](https://oxylabs.io/) | Larger pool and better Google success rates; enterprise pricing. | `http://user:pass@pr.oxylabs.io:7777` |
+
+Ask for **sticky sessions** when you sign up — per-request rotating endpoints break the
+cookie/token binding described above. Note that a shared residential pool can be exhausted
+for Google Trends specifically, in which case even a valid proxy returns `429`; that is what
+`max_proxy_attempts` is for.
 
 ### If Google renames an RPC
 

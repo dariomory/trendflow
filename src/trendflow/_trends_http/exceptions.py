@@ -18,5 +18,17 @@ class ResponseError(Exception):
         return cls(message, response)
 
 
+#: Where the rate-limit guidance lives. Deliberately a plain docs link, not a referral one.
+RATE_LIMIT_DOCS_URL = "https://github.com/dariomory/trendflow#rate-limits"
+
+
 class TooManyRequestsError(ResponseError):
     """HTTP 429 from Google Trends."""
+
+    @classmethod
+    def from_response(cls, response: httpx.Response) -> Self:
+        message = (
+            f"The request failed: Google returned a response with code {response.status_code}. "
+            f"Google rate-limits by exit IP; see {RATE_LIMIT_DOCS_URL} for how to work around it."
+        )
+        return cls(message, response)

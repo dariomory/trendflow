@@ -85,7 +85,12 @@ class GoogleTrendsHttpSession:
             retries=self.retries,
         )
 
-        self._rpc = BatchExecuteClient(hl=self.hl, timeout=self.timeout, headers=dict(headers))
+        self._rpc = BatchExecuteClient(
+            hl=self.hl,
+            timeout=self.timeout,
+            headers=dict(headers),
+            proxy=self.proxies[0] if self.proxies else None,
+        )
 
         self.token_payload: dict[str, Any] = {}
         self.interest_over_time_widget: dict[str, Any] = {}
@@ -96,6 +101,16 @@ class GoogleTrendsHttpSession:
     @property
     def proxy_index(self) -> int:
         return self._http._proxy_index
+
+    def set_proxy(self, proxy_url: str) -> None:
+        """Pin a proxy for every subsequent request and drop the old exit IP's cookie jar."""
+        self.proxies = [proxy_url]
+        self._http.set_proxy(proxy_url)
+        self._rpc.proxy = proxy_url
+
+    def reset_cookies(self) -> None:
+        """Drop the cookie jar; the cached widget tokens are re-fetched by build_payload."""
+        self._http.reset_cookies()
 
     @property
     def cookies(self) -> dict[str, str]:

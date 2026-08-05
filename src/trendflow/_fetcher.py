@@ -1,9 +1,13 @@
 from __future__ import annotations
 
-from typing import Final, Protocol, runtime_checkable
+from collections.abc import Callable, Sequence
+from typing import Any, Final, Protocol, TypeVar, runtime_checkable
 
 from trendflow import _parsers
+from trendflow._proxy import ProxyPool
 from trendflow._trends_http import GoogleTrendsHttpSession
+from trendflow._trends_http.batchexecute import UnknownRpcError
+from trendflow._trends_http.exceptions import ResponseError, TooManyRequestsError
 from trendflow.enums import Region, Resolution, Timeframe
 from trendflow.models import (
     InterestByRegionResult,
@@ -20,6 +24,27 @@ def _trending_geo(region: Region | str) -> str:
     """Google's RPC takes the literal ``"Worldwide"`` rather than an empty geo."""
     value = region.value if isinstance(region, Region) else str(region)
     return "Worldwide" if value == "" else value
+
+
+T = TypeVar("T")
+
+HTTP_FORBIDDEN: Final[int] = 403
+
+
+def _should_rotate(error: Exception) -> bool:
+    """
+    Whether a failure is worth retrying on a different exit IP.
+
+    A 429 or a network error says "this IP is blocked". A 404 says the endpoint is gone, and a
+    renamed RPC id fails identically everywhere, so rotating would only burn the pool.
+    """
+    if isinstance(error, TooManyRequestsError):
+        return True
+    if isinstance(error, ResponseError):
+        return error.response.status_code == HTTP_FORBIDDEN
+    if isinstance(error, UnknownRpcError):
+        return False
+    return True
 
 
 def _hl_from_language(language: str) -> str:
@@ -54,9 +79,60 @@ class TrendsFetcher(Protocol):
 class GoogleTrendsFetcher:
     """Fetches data via the in-tree :class:`GoogleTrendsHttpSession`."""
 
-    def __init__(self, language: str = "en", timeout: int = 10) -> None:
+    def __init__(
+        self,
+        language: str = "en",
+        timeout: int = 10,
+        proxies: Sequence[str] | None = None,
+        max_proxy_attempts: int | None = None,
+        on_proxy_rotate: Callable[[int, Exception], None] | None = None,
+    ) -> None:
+        """
+        ``proxies`` is a list of proxy URLs to rotate through, from any mix of providers.
+
+        One proxy is pinned per query and the pool advances only when a query fails, because
+        Google binds its cookie and widget token to the exit IP. ``max_proxy_attempts``
+        defaults to the pool size, capped at 5; ``on_proxy_rotate(attempt, error)`` is called
+        each time the pool advances.
+        """
         to = (timeout, max(timeout * 2, timeout + 5))
-        self._req = GoogleTrendsHttpSession(hl=_hl_from_language(language), tz=360, timeout=to)
+        self._pool = ProxyPool(proxies) if proxies else None
+        default_attempts = min(self._pool.size, 5) if self._pool else 1
+        self._max_proxy_attempts = max_proxy_attempts if max_proxy_attempts is not None else default_attempts
+        self._on_proxy_rotate = on_proxy_rotate
+        self._req = GoogleTrendsHttpSession(
+            hl=_hl_from_language(language),
+            tz=360,
+            timeout=to,
+            proxies=[self._pool.current()] if self._pool else "",
+        )
+
+    @property
+    def current_proxy(self) -> str | None:
+        """The proxy currently pinned for queries, if a pool is configured."""
+        return self._pool.current() if self._pool else None
+
+    def _with_rotation(self, operation: Callable[[], T]) -> T:
+        """
+        Run a query, moving to the next proxy and re-seeding the cookie jar if it fails in a
+        way a different exit IP could fix.
+        """
+        if self._pool is None:
+            return operation()
+
+        attempts = max(1, min(self._pool.size, self._max_proxy_attempts))
+        for attempt in range(1, attempts + 1):
+            try:
+                return operation()
+            except Exception as error:
+                if not _should_rotate(error) or attempt == attempts:
+                    raise
+                self._pool.advance()
+                # The cookie and any cached widget token belong to the previous exit IP.
+                self._req.set_proxy(self._pool.current())
+                if self._on_proxy_rotate is not None:
+                    self._on_proxy_rotate(attempt, error)
+        raise AssertionError("unreachable")  # pragma: no cover
 
     def interest_over_time(
         self,
@@ -64,15 +140,18 @@ class GoogleTrendsFetcher:
         timeframe: Timeframe,
         region: Region,
     ) -> InterestOverTimeResult:
-        self._req.build_payload(
-            keywords,
-            cat=0,
-            timeframe=timeframe.value,
-            geo=region.value,
-            gprop="",
-        )
-        default = self._req.interest_over_time()
-        return _parsers.interest_over_time_to_result(default, keywords, self._req.geo)
+        def run() -> InterestOverTimeResult:
+            self._req.build_payload(
+                keywords,
+                cat=0,
+                timeframe=timeframe.value,
+                geo=region.value,
+                gprop="",
+            )
+            default = self._req.interest_over_time()
+            return _parsers.interest_over_time_to_result(default, keywords, self._req.geo)
+
+        return self._with_rotation(run)
 
     def interest_by_region(
         self,
@@ -80,17 +159,24 @@ class GoogleTrendsFetcher:
         resolution: Resolution,
         region: Region = Region.US,
     ) -> InterestByRegionResult:
-        self._req.build_payload(
-            [keyword],
-            cat=0,
-            timeframe=Timeframe.PAST_YEAR.value,
-            geo=region.value,
-            gprop="",
-        )
-        default = self._req.interest_by_region(resolution=resolution.value, inc_low_vol=True, inc_geo_code=False)
-        if not default.get("geoMapData"):
-            return InterestByRegionResult(keyword=keyword, resolution=resolution, rows=[])
-        return _parsers.interest_by_region_to_result(default, keyword, [keyword], resolution)
+        def run() -> InterestByRegionResult:
+            self._req.build_payload(
+                [keyword],
+                cat=0,
+                timeframe=Timeframe.PAST_YEAR.value,
+                geo=region.value,
+                gprop="",
+            )
+            default = self._req.interest_by_region(
+                resolution=resolution.value,
+                inc_low_vol=True,
+                inc_geo_code=False,
+            )
+            if not default.get("geoMapData"):
+                return InterestByRegionResult(keyword=keyword, resolution=resolution, rows=[])
+            return _parsers.interest_by_region_to_result(default, keyword, [keyword], resolution)
+
+        return self._with_rotation(run)
 
     def trending_now(
         self,
@@ -104,16 +190,27 @@ class GoogleTrendsFetcher:
         selects fastest-growing (:data:`TRENDING_WINDOW_RISING`) versus highest-volume
         (:data:`TRENDING_WINDOW_TOP`) results.
         """
-        rows = self._req.trending_searches(geo=_trending_geo(region), window=window)
-        return _parsers.trending_result_from_rows(rows)
+
+        def run() -> TrendingResult:
+            rows = self._req.trending_searches(geo=_trending_geo(region), window=window)
+            return _parsers.trending_result_from_rows(rows)
+
+        return self._with_rotation(run)
 
     def related_queries(self, keyword: str) -> RelatedResult:
-        self._req.build_payload(
-            [keyword],
-            cat=0,
-            timeframe=Timeframe.PAST_YEAR.value,
-            geo="",
-            gprop="",
-        )
-        raw = self._req.related_queries()
-        return _parsers.related_queries_to_result(raw, keyword)
+        def run() -> RelatedResult:
+            self._req.build_payload(
+                [keyword],
+                cat=0,
+                timeframe=Timeframe.PAST_YEAR.value,
+                geo="",
+                gprop="",
+            )
+            raw = self._req.related_queries()
+            return _parsers.related_queries_to_result(raw, keyword)
+
+        return self._with_rotation(run)
+
+    def geo_list(self) -> Any:
+        """Every region Google accepts: ``[code, name, slug]`` per country, with subregions."""
+        return self._with_rotation(self._req.geo_list)
