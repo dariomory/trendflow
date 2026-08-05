@@ -4,17 +4,22 @@ import json
 import logging
 from collections.abc import Mapping, MutableMapping, Sequence
 from itertools import product
-from typing import Any, Literal
+from typing import Any, Final, Literal
 from urllib.parse import quote
 
 import httpx
 
 from trendflow._trends_http import endpoints as ep
+from trendflow._trends_http.batchexecute import BatchExecuteClient
 from trendflow._trends_http.transport import TrendsJsonTransport
 
 logger = logging.getLogger(__name__)
 
 Gprop = Literal["", "images", "news", "youtube", "froogle"]
+
+DEFAULT_USER_AGENT: Final[str] = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+)
 
 
 def _normalize_proxies(proxies: str | Sequence[str]) -> list[str]:
@@ -64,6 +69,7 @@ class GoogleTrendsHttpSession:
         headers: MutableMapping[str, str] = {
             "accept": "application/json, text/plain, */*",
             "accept-language": self.hl,
+            "user-agent": DEFAULT_USER_AGENT,
             "origin": "https://trends.google.com",
             "referer": f"{ep.BASE_TRENDS_URL}/explore",
         }
@@ -78,6 +84,8 @@ class GoogleTrendsHttpSession:
             proxy_urls=self.proxies,
             retries=self.retries,
         )
+
+        self._rpc = BatchExecuteClient(hl=self.hl, timeout=self.timeout, headers=dict(headers))
 
         self.token_payload: dict[str, Any] = {}
         self.interest_over_time_widget: dict[str, Any] = {}
@@ -281,10 +289,18 @@ class GoogleTrendsHttpSession:
             result_dict[kw] = {"top": top_list, "rising": rising_list}
         return result_dict
 
-    def trending_searches(self, pn: str = "united_states") -> list[str]:
-        """Trending search titles for the given property namespace key (e.g. ``united_states``)."""
-        req_json = self._get_data(url=ep.TRENDING_SEARCHES, method="get")[pn]
-        return list(req_json)
+    def trending_searches(self, geo: str = "Worldwide", window: int = 8) -> list[list[Any]]:
+        """
+        Trending searches for ``geo``, via the ``batchexecute`` RPC.
+
+        ``geo`` is ``"Worldwide"`` or a country code such as ``"US"``. Returns raw
+        ``[term, growth_percent, volume_index]`` rows.
+        """
+        return self._rpc.trending_searches(geo, window)
+
+    def geo_list(self) -> Any:
+        """The full geo hierarchy Google's own region picker is built from."""
+        return self._rpc.geo_list()
 
     def today_searches(self, pn: str = "US") -> list[str]:
         """Today's search titles for ``pn`` (country code)."""

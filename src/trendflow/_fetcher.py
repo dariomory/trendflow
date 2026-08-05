@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import Final, Protocol, runtime_checkable
 
 from trendflow import _parsers
 from trendflow._trends_http import GoogleTrendsHttpSession
@@ -12,25 +12,14 @@ from trendflow.models import (
     TrendingResult,
 )
 
-# `trending_searches(pn=...)` response keys (see `GoogleTrendsHttpSession.trending_searches`).
-TRENDING_PN: dict[Region, str] = {
-    Region.US: "united_states",
-    Region.GB: "united_kingdom",
-    Region.DE: "germany",
-    Region.FR: "france",
-    Region.IT: "italy",
-    Region.ES: "spain",
-    Region.CA: "canada",
-    Region.AU: "australia",
-    Region.JP: "japan",
-    Region.IN: "india",
-    Region.BR: "brazil",
-    Region.MX: "mexico",
-    Region.NL: "netherlands",
-    Region.SE: "sweden",
-    Region.PL: "poland",
-    Region.TR: "turkey",
-}
+TRENDING_WINDOW_RISING: Final[int] = 8
+TRENDING_WINDOW_TOP: Final[int] = 10
+
+
+def _trending_geo(region: Region | str) -> str:
+    """Google's RPC takes the literal ``"Worldwide"`` rather than an empty geo."""
+    value = region.value if isinstance(region, Region) else str(region)
+    return "Worldwide" if value == "" else value
 
 
 def _hl_from_language(language: str) -> str:
@@ -57,7 +46,7 @@ class TrendsFetcher(Protocol):
         region: Region = Region.US,
     ) -> InterestByRegionResult: ...
 
-    def trending_now(self, region: Region) -> TrendingResult: ...
+    def trending_now(self, region: Region | str = Region.WORLDWIDE, window: int = ...) -> TrendingResult: ...
 
     def related_queries(self, keyword: str) -> RelatedResult: ...
 
@@ -103,16 +92,20 @@ class GoogleTrendsFetcher:
             return InterestByRegionResult(keyword=keyword, resolution=resolution, rows=[])
         return _parsers.interest_by_region_to_result(default, keyword, [keyword], resolution)
 
-    def trending_now(self, region: Region) -> TrendingResult:
-        if region is Region.WORLDWIDE:
-            msg = "Trending searches require a specific country; use e.g. Region.US"
-            raise ValueError(msg)
-        pn = TRENDING_PN.get(region)
-        if pn is None:
-            msg = f"No trending_searches mapping for region {region!r}"
-            raise ValueError(msg)
-        titles = self._req.trending_searches(pn=pn)
-        return _parsers.trending_result_from_titles(titles)
+    def trending_now(
+        self,
+        region: Region | str = Region.WORLDWIDE,
+        window: int = TRENDING_WINDOW_RISING,
+    ) -> TrendingResult:
+        """
+        Trending searches for ``region``.
+
+        Accepts any country code, not a fixed list, and worldwide works too. ``window``
+        selects fastest-growing (:data:`TRENDING_WINDOW_RISING`) versus highest-volume
+        (:data:`TRENDING_WINDOW_TOP`) results.
+        """
+        rows = self._req.trending_searches(geo=_trending_geo(region), window=window)
+        return _parsers.trending_result_from_rows(rows)
 
     def related_queries(self, keyword: str) -> RelatedResult:
         self._req.build_payload(

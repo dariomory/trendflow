@@ -5,13 +5,13 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from trendflow._fetcher import (
-    TRENDING_PN,
+    TRENDING_WINDOW_RISING,
+    TRENDING_WINDOW_TOP,
     GoogleTrendsFetcher,
     TrendsFetcher,
     _hl_from_language,
+    _trending_geo,
 )
 from trendflow.enums import Region, Resolution, Timeframe
 from trendflow.models import (
@@ -36,20 +36,18 @@ class TestHlFromLanguage:
         assert _hl_from_language("zh-CN") == "zh-CN"
 
 
-class TestTrendingPnMapping:
-    def test_us_maps_to_united_states(self) -> None:
-        assert TRENDING_PN[Region.US] == "united_states"
+class TestTrendingGeo:
+    def test_worldwide_maps_to_literal(self) -> None:
+        assert _trending_geo(Region.WORLDWIDE) == "Worldwide"
 
-    def test_gb_maps_to_united_kingdom(self) -> None:
-        assert TRENDING_PN[Region.GB] == "united_kingdom"
+    def test_country_code_passed_through(self) -> None:
+        assert _trending_geo(Region.US) == "US"
 
-    def test_worldwide_not_in_mapping(self) -> None:
-        assert Region.WORLDWIDE not in TRENDING_PN
+    def test_plain_string_accepted(self) -> None:
+        assert _trending_geo("PT") == "PT"
 
-    def test_all_non_worldwide_regions_have_mapping(self) -> None:
-        for region in Region:
-            if region is not Region.WORLDWIDE:
-                assert region in TRENDING_PN, f"Missing TRENDING_PN entry for {region!r}"
+    def test_empty_string_maps_to_worldwide(self) -> None:
+        assert _trending_geo("") == "Worldwide"
 
 
 def _make_fetcher() -> tuple[GoogleTrendsFetcher, Any]:
@@ -197,44 +195,58 @@ class TestInterestByRegion:
 
 
 class TestTrendingNow:
-    def test_worldwide_raises_value_error(self) -> None:
-        fetcher, _ = _make_fetcher()
-        with pytest.raises(ValueError, match="specific country"):
-            fetcher.trending_now(region=Region.WORLDWIDE)
-
-    def test_valid_region_calls_trending_searches(self) -> None:
+    def test_worldwide_is_allowed(self) -> None:
         fetcher, req = _make_fetcher()
-        req.trending_searches.return_value = ["AI", "Python"]
+        req.trending_searches.return_value = []
+
+        fetcher.trending_now(region=Region.WORLDWIDE)
+
+        req.trending_searches.assert_called_once_with(geo="Worldwide", window=TRENDING_WINDOW_RISING)
+
+    def test_defaults_to_worldwide(self) -> None:
+        fetcher, req = _make_fetcher()
+        req.trending_searches.return_value = []
+
+        fetcher.trending_now()
+
+        req.trending_searches.assert_called_once_with(geo="Worldwide", window=TRENDING_WINDOW_RISING)
+
+    def test_region_passed_as_geo(self) -> None:
+        fetcher, req = _make_fetcher()
+        req.trending_searches.return_value = [["AI", 100, 5]]
 
         result = fetcher.trending_now(region=Region.US)
 
-        req.trending_searches.assert_called_once_with(pn="united_states")
+        req.trending_searches.assert_called_once_with(geo="US", window=TRENDING_WINDOW_RISING)
         assert isinstance(result, TrendingResult)
 
-    def test_returns_correct_titles(self) -> None:
+    def test_arbitrary_country_code_accepted(self) -> None:
         fetcher, req = _make_fetcher()
-        req.trending_searches.return_value = ["AI tools", "Python 4"]
+        req.trending_searches.return_value = []
+
+        fetcher.trending_now(region="PT")
+
+        req.trending_searches.assert_called_once_with(geo="PT", window=TRENDING_WINDOW_RISING)
+
+    def test_window_is_forwarded(self) -> None:
+        fetcher, req = _make_fetcher()
+        req.trending_searches.return_value = []
+
+        fetcher.trending_now(region=Region.US, window=TRENDING_WINDOW_TOP)
+
+        req.trending_searches.assert_called_once_with(geo="US", window=TRENDING_WINDOW_TOP)
+
+    def test_parses_growth_and_volume(self) -> None:
+        fetcher, req = _make_fetcher()
+        req.trending_searches.return_value = [["AI tools", 3950, 7], ["Python 4", 850, 6]]
 
         result = fetcher.trending_now(region=Region.US)
 
         assert result.results[0].title == "AI tools"
+        assert result.results[0].growth == 3950
+        assert result.results[0].volume == 7
+        assert result.results[0].traffic == "+3,950%"
         assert result.results[1].title == "Python 4"
-
-    def test_pn_lookup_for_gb(self) -> None:
-        fetcher, req = _make_fetcher()
-        req.trending_searches.return_value = []
-
-        fetcher.trending_now(region=Region.GB)
-
-        req.trending_searches.assert_called_once_with(pn="united_kingdom")
-
-    def test_pn_lookup_for_de(self) -> None:
-        fetcher, req = _make_fetcher()
-        req.trending_searches.return_value = []
-
-        fetcher.trending_now(region=Region.DE)
-
-        req.trending_searches.assert_called_once_with(pn="germany")
 
 
 class TestRelatedQueries:

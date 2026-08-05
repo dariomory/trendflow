@@ -17,8 +17,8 @@ from trendflow._parsers import (
     parse_rising_related,
     parse_top_related,
     related_queries_to_result,
-    trending_result_from_titles,
-    trending_titles_to_items,
+    trending_result_from_rows,
+    trending_rows_to_items,
 )
 from trendflow.enums import Resolution
 from trendflow.models import (
@@ -268,25 +268,37 @@ class TestInterestByRegionToResult:
         assert result.resolution == Resolution.REGION
 
 
-class TestTrendingTitlesToItems:
+class TestTrendingRowsToItems:
     def test_basic_mapping(self) -> None:
-        items = trending_titles_to_items(["AI news", "Python 4"])
+        items = trending_rows_to_items([["AI news", 100, 5], ["Python 4", 50, 3]])
         assert len(items) == 2
         assert items[0].title == "AI news"
         assert items[1].title == "Python 4"
 
-    def test_empty_traffic_and_articles(self) -> None:
-        items = trending_titles_to_items(["test"])
-        assert items[0].traffic == ""
-        assert items[0].articles == []
+    def test_growth_and_volume(self) -> None:
+        item = trending_rows_to_items([["AI news", 3950, 7]])[0]
+        assert item.growth == 3950
+        assert item.volume == 7
+        assert item.traffic == "+3,950%"
+        assert item.articles == []
+
+    def test_negative_growth(self) -> None:
+        assert trending_rows_to_items([["fading", -20, 3]])[0].traffic == "-20%"
+
+    def test_missing_growth_and_volume(self) -> None:
+        item = trending_rows_to_items([["bare"]])[0]
+        assert item.growth is None
+        assert item.volume is None
+        assert item.traffic == ""
+
+    def test_malformed_rows_skipped(self) -> None:
+        assert len(trending_rows_to_items(["nope", None, [], ["ok", 5, 1]])) == 1
 
     def test_empty_list(self) -> None:
-        assert trending_titles_to_items([]) == []
+        assert trending_rows_to_items([]) == []
 
-    def test_non_string_titles_coerced(self) -> None:
-        items = trending_titles_to_items([42, None])  # type: ignore
-        assert items[0].title == "42"
-        assert items[1].title == "None"
+    def test_result_wrapper(self) -> None:
+        assert len(trending_result_from_rows([["one", 10, 2]]).results) == 1
 
 
 class TestToIntOrNone:
@@ -453,19 +465,19 @@ class TestRelatedQueriesToResult:
         assert isinstance(result, RelatedResult)
 
 
-class TestTrendingResultFromTitles:
+class TestTrendingResultFromRows:
     def test_returns_trending_result(self) -> None:
-        result = trending_result_from_titles(["AI", "Python"])
+        result = trending_result_from_rows([["AI", 10, 1], ["Python", 5, 2]])
         assert isinstance(result, TrendingResult)
 
     def test_correct_item_count(self) -> None:
-        result = trending_result_from_titles(["A", "B", "C"])
+        result = trending_result_from_rows([["A", 1, 1], ["B", 2, 2], ["C", 3, 3]])
         assert len(result.results) == 3
 
     def test_titles_mapped(self) -> None:
-        result = trending_result_from_titles(["AI news"])
+        result = trending_result_from_rows([["AI news", 100, 4]])
         assert result.results[0].title == "AI news"
 
-    def test_empty_titles(self) -> None:
-        result = trending_result_from_titles([])
+    def test_empty_rows(self) -> None:
+        result = trending_result_from_rows([])
         assert result.results == []

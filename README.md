@@ -69,6 +69,61 @@ data.export(ExportFormat.JSON, path="trends.json")
 data.to_dataframe()  # pandas DataFrame
 ```
 
+## Feature Parity
+
+Trendflow also ships as a JavaScript/TypeScript library: [trendflow-js](https://github.com/dariomory/trendflow-js) ([npm: `trendflow`](https://www.npmjs.com/package/trendflow)).
+
+| Feature               | Python (`trendflow-py`) | JS (`trendflow`) |
+|-----------------------|:-----------------------:|:----------------:|
+| Interest over time    | ✅                      | ✅               |
+| Interest by region    | ✅                      | ✅               |
+| Trending now          | ✅ [†](#trending-now)   | ✅ [†](#trending-now) |
+| Trending growth %/volume | ✅                   | ✅               |
+| Related queries       | ✅                      | ✅               |
+| CSV/JSON export       | ✅                      | ✅               |
+| Proxy support         | ✅                      | ✅               |
+| Automatic proxy pool  | ❌ N/A                  | ✅               |
+| pandas DataFrame      | ✅                      | ❌ N/A           |
+| Plain-object rows     | ❌ N/A                  | ✅ `toArray()`   |
+| CLI                   | ✅                      | 🔜 planned       |
+
+<a id="trending-now"></a>
+† Google retired the `hottrends/visualize/internal/data` endpoint, along with
+`api/dailytrends` and `api/realtimetrends`; all three now return HTTP 404. `trending_now()`
+therefore runs on the `batchexecute` RPC that trends.google.com itself uses, which returns
+more than the old endpoint did:
+
+```python
+trending = tf.trending_now(Region.US)
+for item in trending.results:
+    print(item.title, item.growth, item.volume, item.traffic)
+    # "fifa world cup 2026"  3650  6  "+3,650%"
+```
+
+- `growth` is the percentage rise over the window, `volume` a relative search-volume index.
+- Any country code works, not a fixed list, and worldwide is now allowed (and the default).
+- `articles` is always empty — this endpoint carries no article links.
+- No cookie is needed, and the RPC answers on IPs that get a `429` from the widgetdata
+  endpoints, so `trending_now()` often works where the other queries do not.
+
+Pass `window=TRENDING_WINDOW_TOP` for the highest-volume searches instead of the
+fastest-growing ones. `window` is an undocumented Google parameter; other integers between
+4 and 12 also return data over varying recency windows.
+
+### Rate limits
+
+Google returns HTTP 429 to requests carrying a default Python HTTP client User-Agent
+regardless of how few requests you have made, so the library sends a browser User-Agent by
+default. If an IP itself is flagged, every request gets a `429` no matter the headers —
+route through a residential proxy to recover.
+
+### If Google renames an RPC
+
+The `batchexecute` RPC identifiers are pinned constants; they are not discoverable at
+runtime. If Google renames one, calls raise `UnknownRpcError` naming the identifier, and you
+can patch it without waiting for a release by passing `rpc_ids` to
+`trendflow._trends_http.batchexecute.BatchExecuteClient`.
+
 ## Documentation
 
 Documentation is built with [Zensical](https://zensical.org/) and deployed to GitHub Pages.

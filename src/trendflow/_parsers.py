@@ -98,9 +98,30 @@ def interest_by_region_to_result(
     return InterestByRegionResult(keyword=keyword, resolution=resolution, rows=rows)
 
 
-def trending_titles_to_items(titles: list[str]) -> list[TrendingItem]:
-    """Map trending search title strings to :class:`TrendingItem` (no traffic/articles in this endpoint)."""
-    return [TrendingItem(title=str(t), traffic="", articles=[]) for t in titles]
+def _format_growth(growth: int | None) -> str:
+    if growth is None:
+        return ""
+    sign = "+" if growth >= 0 else "-"
+    return f"{sign}{abs(growth):,}%"
+
+
+def trending_rows_to_items(rows: list[Any]) -> list[TrendingItem]:
+    """Map ``[term, growth_percent, volume_index]`` rows from the trending RPC to items."""
+    items: list[TrendingItem] = []
+    for row in rows:
+        if not isinstance(row, list) or not row:
+            continue
+        growth = _to_int_or_none(row[1]) if len(row) > 1 else None
+        items.append(
+            TrendingItem(
+                title=str(row[0]),
+                traffic=_format_growth(growth),
+                articles=[],
+                growth=growth,
+                volume=_to_int_or_none(row[2]) if len(row) > 2 else None,
+            ),
+        )
+    return items
 
 
 def _to_int_or_none(val: Any) -> int | None:
@@ -165,5 +186,5 @@ def related_queries_to_result(
     )
 
 
-def trending_result_from_titles(titles: list[str]) -> TrendingResult:
-    return TrendingResult(results=trending_titles_to_items(titles))
+def trending_result_from_rows(rows: list[Any]) -> TrendingResult:
+    return TrendingResult(results=trending_rows_to_items(rows))

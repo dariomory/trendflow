@@ -190,19 +190,26 @@ class TestTopCharts:
 
 
 class TestTrendingSearches:
-    def test_returns_list_for_pn(self) -> None:
+    def test_delegates_to_batchexecute(self) -> None:
         session = _make_session()
-        mock_response = {"united_states": ["AI", "Python"]}
-        with patch.object(session, "_get_data", return_value=mock_response):
-            result = session.trending_searches(pn="united_states")
-        assert result == ["AI", "Python"]
+        rows = [["AI", 100, 5], ["Python", 50, 3]]
+        with patch.object(session._rpc, "trending_searches", return_value=rows) as rpc:
+            result = session.trending_searches(geo="US", window=8)
+        rpc.assert_called_once_with("US", 8)
+        assert result == rows
 
-    def test_returns_list_type(self) -> None:
+    def test_defaults_to_worldwide_rising(self) -> None:
         session = _make_session()
-        mock_response = {"germany": ["Bayern", "Bundesliga"]}
-        with patch.object(session, "_get_data", return_value=mock_response):
-            result = session.trending_searches(pn="germany")
-        assert isinstance(result, list)
+        with patch.object(session._rpc, "trending_searches", return_value=[]) as rpc:
+            session.trending_searches()
+        rpc.assert_called_once_with("Worldwide", 8)
+
+    def test_geo_list_delegates_to_batchexecute(self) -> None:
+        session = _make_session()
+        with patch.object(session._rpc, "geo_list", return_value=[["US", "United States"]]) as rpc:
+            result = session.geo_list()
+        rpc.assert_called_once_with()
+        assert result == [["US", "United States"]]
 
 
 class TestRelatedQueriesWidgets:

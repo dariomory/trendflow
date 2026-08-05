@@ -17,4 +17,8 @@ CATEGORY_PICKER: Final[str] = f"{BASE_TRENDS_URL}/api/explore/pickers/category"
 TODAY_SEARCHES: Final[str] = f"{BASE_TRENDS_URL}/api/dailytrends"
 REALTIME_TRENDING: Final[str] = f"{BASE_TRENDS_URL}/api/realtimetrends"
 
+# The RPC endpoint behind the current Trends UI. TRENDING_SEARCHES, TODAY_SEARCHES, and
+# REALTIME_TRENDING above are all retired by Google and now return 404; this replaces them.
+BATCH_EXECUTE: Final[str] = "https://trends.google.com/_/TrendsUi/data/batchexecute"
+
 HTTP_TOO_MANY_REQUESTS: Final[int] = 429

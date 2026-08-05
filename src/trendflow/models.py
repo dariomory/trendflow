@@ -66,6 +66,10 @@ class TrendingItem:
     title: str
     traffic: str
     articles: list[str]
+    #: Percentage increase in searches over the window, e.g. ``3950`` for a 3,950% rise.
+    growth: int | None = None
+    #: Relative search volume for the term, on Google's own 0-100 style scale.
+    volume: int | None = None
 
 
 @dataclass(frozen=True)
