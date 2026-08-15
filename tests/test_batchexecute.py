@@ -10,6 +10,7 @@ import pytest
 
 from trendflow._trends_http.batchexecute import (
     RPC_GEO_LIST,
+    RPC_SUGGESTIONS,
     RPC_TRENDING,
     BatchExecuteClient,
     UnknownRpcError,
@@ -102,3 +103,42 @@ class TestBatchExecuteClient:
         with patch("httpx.Client", return_value=http):
             client.geo_list()
         assert http.__enter__.return_value.post.call_args.kwargs["params"]["rpcids"] == RPC_GEO_LIST
+
+
+SUGGESTION_PAYLOAD: Any = [
+    [
+        ["/m/0mkz", "Artificial intelligence", "Professional field", "https://img", False],
+        ["/m/05p0rrx", "Bitcoin", "Cryptocurrency", "https://img", False],
+        ["/m/07c1v", "Technology", "", "https://img", False],
+    ],
+]
+
+
+class TestSuggestions:
+    def test_returns_raw_rows(self) -> None:
+        client, http = _client(text=envelope(RPC_SUGGESTIONS, SUGGESTION_PAYLOAD))
+        with patch("httpx.Client", return_value=http):
+            rows = client.suggestions("ai")
+        assert len(rows) == 3
+        assert rows[0][0] == "/m/0mkz"
+
+    def test_sends_query_and_language(self) -> None:
+        client, http = _client(text=envelope(RPC_SUGGESTIONS, SUGGESTION_PAYLOAD))
+        with patch("httpx.Client", return_value=http):
+            client.suggestions("bitcoin")
+        kwargs = http.__enter__.return_value.post.call_args.kwargs
+        assert kwargs["params"]["rpcids"] == RPC_SUGGESTIONS
+        assert json.loads(kwargs["data"]["f.req"])[0][0][1] == json.dumps(["bitcoin", "en"])
+
+    def test_empty_when_nothing_matches(self) -> None:
+        client, http = _client(text=envelope(RPC_SUGGESTIONS, [[]]))
+        with patch("httpx.Client", return_value=http):
+            assert client.suggestions("zzz") == []
+
+    def test_rpc_id_override(self) -> None:
+        client, http = _client(
+            text=envelope("newId", SUGGESTION_PAYLOAD),
+            rpc_ids={"suggestions": "newId"},
+        )
+        with patch("httpx.Client", return_value=http):
+            assert len(client.suggestions("ai")) == 3

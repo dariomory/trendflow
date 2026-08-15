@@ -80,6 +80,23 @@ class TrendingResult:
 
 
 @dataclass(frozen=True)
+class TopicSuggestion:
+    """
+    An entity Google recognises, as returned by search suggestions.
+
+    ``mid`` is the identifier to pass as a keyword to query the **topic** rather than the
+    literal phrase -- a topic aggregates every spelling and translation of the same concept.
+    """
+
+    #: Freebase-style entity id, e.g. ``"/m/0mkz"``. Pass this as a keyword.
+    mid: str
+    #: Display name, e.g. ``"Artificial intelligence"``.
+    title: str
+    #: Disambiguating descriptor, e.g. ``"Professional field"``. ``None`` when Google omits it.
+    type: str | None = None
+
+
+@dataclass(frozen=True)
 class RelatedQuery:
     """A top or rising related query."""
 

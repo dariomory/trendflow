@@ -17,6 +17,7 @@ from trendflow._parsers import (
     parse_rising_related,
     parse_top_related,
     related_queries_to_result,
+    suggestion_rows_to_topics,
     trending_result_from_rows,
     trending_rows_to_items,
 )
@@ -481,3 +482,25 @@ class TestTrendingResultFromRows:
     def test_empty_rows(self) -> None:
         result = trending_result_from_rows([])
         assert result.results == []
+
+
+class TestSuggestionRowsToTopics:
+    def test_maps_mid_title_and_type(self) -> None:
+        topics = suggestion_rows_to_topics(
+            [["/m/0mkz", "Artificial intelligence", "Professional field", "https://img", False]],
+        )
+        assert topics[0].mid == "/m/0mkz"
+        assert topics[0].title == "Artificial intelligence"
+        assert topics[0].type == "Professional field"
+
+    def test_empty_type_becomes_none(self) -> None:
+        assert suggestion_rows_to_topics([["/m/07c1v", "Technology", ""]])[0].type is None
+
+    def test_missing_type_becomes_none(self) -> None:
+        assert suggestion_rows_to_topics([["/m/07c1v", "Technology"]])[0].type is None
+
+    def test_malformed_rows_skipped(self) -> None:
+        assert len(suggestion_rows_to_topics(["nope", None, [], [1, 2], ["/m/1", "Ok", "T"]])) == 1
+
+    def test_empty_list(self) -> None:
+        assert suggestion_rows_to_topics([]) == []

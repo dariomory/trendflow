@@ -13,6 +13,7 @@ from trendflow.models import (
     RegionalInterestRow,
     RelatedQuery,
     RelatedResult,
+    TopicSuggestion,
     TrendingItem,
     TrendingResult,
     TrendPoint,
@@ -122,6 +123,24 @@ def trending_rows_to_items(rows: list[Any]) -> list[TrendingItem]:
             ),
         )
     return items
+
+
+def suggestion_rows_to_topics(rows: list[Any]) -> list[TopicSuggestion]:
+    """Map ``[mid, title, type, ...]`` rows from the suggestions RPC to topics."""
+    out: list[TopicSuggestion] = []
+    for row in rows:
+        if not isinstance(row, list) or not row or not isinstance(row[0], str):
+            continue
+        raw_type = row[2] if len(row) > 2 else None
+        topic_type = raw_type if isinstance(raw_type, str) and raw_type else None
+        out.append(
+            TopicSuggestion(
+                mid=row[0],
+                title=str(row[1]) if len(row) > 1 and row[1] is not None else "",
+                type=topic_type,
+            ),
+        )
+    return out
 
 
 def _to_int_or_none(val: Any) -> int | None:

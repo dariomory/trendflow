@@ -21,6 +21,8 @@ from trendflow._trends_http.exceptions import ResponseError, TooManyRequestsErro
 RPC_TRENDING = "fXqlme"
 # ``DqDTgb``: the full geo hierarchy -- every country with its subregions.
 RPC_GEO_LIST = "DqDTgb"
+# ``hzg6Ed``: entity autocomplete -- the picker behind the UI's "Topic" suggestions.
+RPC_SUGGESTIONS = "hzg6Ed"
 
 
 class UnknownRpcError(Exception):
@@ -88,6 +90,7 @@ class BatchExecuteClient:
         ids = dict(rpc_ids or {})
         self.trending_rpc_id = ids.get("trending", RPC_TRENDING)
         self.geo_list_rpc_id = ids.get("geo_list", RPC_GEO_LIST)
+        self.suggestions_rpc_id = ids.get("suggestions", RPC_SUGGESTIONS)
 
     def call(self, rpc_id: str, payload: Any) -> Any:
         """
@@ -148,3 +151,20 @@ class BatchExecuteClient:
     def geo_list(self) -> Any:
         """The full geo hierarchy: ``[code, name, slug]`` per country, each with subregions."""
         return self.call(self.geo_list_rpc_id, [self.hl, 1, 1])
+
+    def suggestions(self, query: str) -> list[list[Any]]:
+        """
+        Entity suggestions for a partial query.
+
+        Needs no cookie and no reCAPTCHA token. Returns raw
+        ``[mid, title, type, image_url, bool]`` rows.
+        """
+        data = self.call(self.suggestions_rpc_id, [query, self.hl])
+        try:
+            rows = data[0]
+        except (TypeError, IndexError, KeyError):
+            return []
+        if not isinstance(rows, list):
+            return []
+        # The payload is untyped JSON; the parser defends against malformed rows.
+        return cast("list[list[Any]]", rows)

@@ -13,6 +13,7 @@ from trendflow.models import (
     InterestByRegionResult,
     InterestOverTimeResult,
     RelatedResult,
+    TopicSuggestion,
     TrendingResult,
 )
 
@@ -74,6 +75,8 @@ class TrendsFetcher(Protocol):
     def trending_now(self, region: Region | str = Region.WORLDWIDE, window: int = ...) -> TrendingResult: ...
 
     def related_queries(self, keyword: str) -> RelatedResult: ...
+
+    def suggestions(self, query: str) -> list[TopicSuggestion]: ...
 
 
 class GoogleTrendsFetcher:
@@ -210,6 +213,21 @@ class GoogleTrendsFetcher:
             return _parsers.related_queries_to_result(raw, keyword)
 
         return self._with_rotation(run)
+
+    def suggestions(self, query: str) -> list[TopicSuggestion]:
+        """
+        Entity suggestions for a partial query -- the picker behind the UI's "Topic" results.
+
+        Pass a returned ``mid`` as a keyword to any query method to measure the **topic**
+        rather than the literal phrase; a topic aggregates every spelling and translation of
+        the same concept, so it usually scores far higher than the raw string.
+
+        Needs no cookie and no proxy: this RPC answers on IPs the widgetdata endpoints
+        reject.
+        """
+        return self._with_rotation(
+            lambda: _parsers.suggestion_rows_to_topics(self._req.suggestions(query)),
+        )
 
     def geo_list(self) -> Any:
         """Every region Google accepts: ``[code, name, slug]`` per country, with subregions."""

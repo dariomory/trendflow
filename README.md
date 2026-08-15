@@ -83,6 +83,8 @@ Current: [`trendflow-py`](https://github.com/dariomory/trendflow) 0.2.0 · [`tre
 | Trending growth % and volume | ✅ | ✅ |
 | Trending for any country code | ✅ | ✅ |
 | Related queries | ✅ | ✅ |
+| Search suggestions | ✅ `suggestions()` | ✅ `suggestions()` |
+| Query by topic (entity mid) | ✅ | ✅ |
 | CSV / JSON export | ✅ | ✅ |
 | Rotating proxy pool | ✅ | ✅ |
 | Browser User-Agent by default | ✅ | ✅ |
@@ -116,6 +118,31 @@ for item in trending.results:
 Pass `window=TRENDING_WINDOW_TOP` for the highest-volume searches instead of the
 fastest-growing ones. `window` is an undocumented Google parameter; other integers between
 4 and 12 also return data over varying recency windows.
+
+### Topics and search suggestions
+
+Google distinguishes a **search term** (the literal string) from a **topic** (the entity, in
+every spelling and language). `suggestions()` finds the topic; every query method already
+accepts one — pass the `mid` where you would pass a keyword.
+
+```python
+topics = tf.suggestions("artificial intelligence")
+# [TopicSuggestion(mid='/m/0mkz', title='Artificial intelligence', type='Professional field')]
+
+data = tf.interest_over_time(
+    keywords=[topics[0].mid, "artificial intelligence"],
+    timeframe=Timeframe.PAST_YEAR,
+    region=Region.US,
+)
+# {'/m/0mkz': 62, 'artificial intelligence': 1}
+```
+
+That gap is the point: the topic scores **62** where the literal phrase scores **1**, because
+it aggregates every phrasing and translation people actually search.
+
+`suggestions()` needs no cookie and no proxy — it answers on IPs the widgetdata endpoints
+reject with `429`, same as `trending_now()`. `type` disambiguates same-name entities
+(`"Nike"` returns both the company and the goddess) and is `None` when Google omits it.
 
 <a id="rate-limits"></a>
 ### Rate limits

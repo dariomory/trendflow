@@ -317,6 +317,10 @@ class GoogleTrendsHttpSession:
         """The full geo hierarchy Google's own region picker is built from."""
         return self._rpc.geo_list()
 
+    def suggestions(self, query: str) -> list[list[Any]]:
+        """Entity suggestions for a partial query."""
+        return self._rpc.suggestions(query)
+
     def today_searches(self, pn: str = "US") -> list[str]:
         """Today's search titles for ``pn`` (country code)."""
         forms = {"ns": 15, "geo": pn, "tz": "-180", "hl": self.hl}
@@ -381,7 +385,14 @@ class GoogleTrendsHttpSession:
         except IndexError:
             return None
 
-    def suggestions(self, keyword: str) -> Any:
+    def autocomplete(self, keyword: str) -> Any:
+        """
+        Entity suggestions from the legacy ``api/autocomplete`` endpoint.
+
+        Superseded by :meth:`suggestions`, which uses the RPC the current UI calls and
+        returns better matches -- ``"tech"`` yields *Technology* there but *Technics*,
+        *Technivorm*, *TechnoMarine* here. Kept because the endpoint still answers.
+        """
         kw_param = quote(keyword)
         parameters = {"hl": self.hl}
         return self._get_data(
