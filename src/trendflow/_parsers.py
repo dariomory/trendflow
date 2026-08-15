@@ -15,7 +15,6 @@ from trendflow.models import (
     RelatedResult,
     TopicSuggestion,
     TrendingItem,
-    TrendingResult,
     TrendPoint,
 )
 
@@ -117,9 +116,11 @@ def trending_rows_to_items(rows: list[Any]) -> list[TrendingItem]:
             TrendingItem(
                 title=str(row[0]),
                 traffic=_format_growth(growth),
+                # The RPC carries neither articles nor a start time; RSS supplies those.
                 articles=[],
                 growth=growth,
                 volume=_to_int_or_none(row[2]) if len(row) > 2 else None,
+                started_at=None,
             ),
         )
     return items
@@ -203,7 +204,3 @@ def related_queries_to_result(
         top=parse_top_related(top_rows),
         rising=parse_rising_related(rising_rows),
     )
-
-
-def trending_result_from_rows(rows: list[Any]) -> TrendingResult:
-    return TrendingResult(results=trending_rows_to_items(rows))

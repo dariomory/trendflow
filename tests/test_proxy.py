@@ -87,12 +87,12 @@ class TestFetcherRotation:
             ["http://bad:1", "http://good:2"],
             on_proxy_rotate=lambda attempt, _error: rotations.append(attempt),
         )
-        session.trending_searches.side_effect = [
+        session.rpc_client.trending_searches.side_effect = [
             TooManyRequestsError("boom", MagicMock()),
             [["AI", 100, 5]],
         ]
 
-        result = fetcher.trending_now(Region.US)
+        result = fetcher.trending_now(Region.US, backend="rpc")
 
         assert len(result.results) == 1
         assert rotations == [1]
@@ -101,33 +101,33 @@ class TestFetcherRotation:
 
     def test_gives_up_after_every_proxy(self) -> None:
         fetcher, session = _fetcher_with_pool(["http://a:1", "http://b:2"])
-        session.trending_searches.side_effect = TooManyRequestsError("boom", MagicMock())
+        session.rpc_client.trending_searches.side_effect = TooManyRequestsError("boom", MagicMock())
 
         with pytest.raises(TooManyRequestsError):
-            fetcher.trending_now(Region.US)
+            fetcher.trending_now(Region.US, backend="rpc")
 
-        assert session.trending_searches.call_count == 2
+        assert session.rpc_client.trending_searches.call_count == 2
 
     def test_does_not_rotate_on_404(self) -> None:
         fetcher, session = _fetcher_with_pool(["http://a:1", "http://b:2"])
-        session.trending_searches.side_effect = _response_error(404)
+        session.rpc_client.trending_searches.side_effect = _response_error(404)
 
         with pytest.raises(ResponseError):
-            fetcher.trending_now(Region.US)
+            fetcher.trending_now(Region.US, backend="rpc")
 
-        assert session.trending_searches.call_count == 1
+        assert session.rpc_client.trending_searches.call_count == 1
 
     def test_max_proxy_attempts_caps_rotation(self) -> None:
         fetcher, session = _fetcher_with_pool(
             ["http://a:1", "http://b:2", "http://c:3", "http://d:4"],
             max_proxy_attempts=2,
         )
-        session.trending_searches.side_effect = TooManyRequestsError("boom", MagicMock())
+        session.rpc_client.trending_searches.side_effect = TooManyRequestsError("boom", MagicMock())
 
         with pytest.raises(TooManyRequestsError):
-            fetcher.trending_now(Region.US)
+            fetcher.trending_now(Region.US, backend="rpc")
 
-        assert session.trending_searches.call_count == 2
+        assert session.rpc_client.trending_searches.call_count == 2
 
     def test_session_receives_first_proxy(self) -> None:
         with patch("trendflow._fetcher.GoogleTrendsHttpSession") as session_cls:

@@ -18,7 +18,6 @@ from trendflow._parsers import (
     parse_top_related,
     related_queries_to_result,
     suggestion_rows_to_topics,
-    trending_result_from_rows,
     trending_rows_to_items,
 )
 from trendflow.enums import Resolution
@@ -26,7 +25,6 @@ from trendflow.models import (
     InterestByRegionResult,
     InterestOverTimeResult,
     RelatedResult,
-    TrendingResult,
 )
 
 
@@ -282,6 +280,7 @@ class TestTrendingRowsToItems:
         assert item.volume == 7
         assert item.traffic == "+3,950%"
         assert item.articles == []
+        assert item.started_at is None
 
     def test_negative_growth(self) -> None:
         assert trending_rows_to_items([["fading", -20, 3]])[0].traffic == "-20%"
@@ -297,9 +296,6 @@ class TestTrendingRowsToItems:
 
     def test_empty_list(self) -> None:
         assert trending_rows_to_items([]) == []
-
-    def test_result_wrapper(self) -> None:
-        assert len(trending_result_from_rows([["one", 10, 2]]).results) == 1
 
 
 class TestToIntOrNone:
@@ -464,24 +460,6 @@ class TestRelatedQueriesToResult:
         raw: dict[str, dict[str, list[dict[str, Any]] | None]] = {"Python": {"top": [], "rising": []}}
         result = related_queries_to_result(raw, "Python")
         assert isinstance(result, RelatedResult)
-
-
-class TestTrendingResultFromRows:
-    def test_returns_trending_result(self) -> None:
-        result = trending_result_from_rows([["AI", 10, 1], ["Python", 5, 2]])
-        assert isinstance(result, TrendingResult)
-
-    def test_correct_item_count(self) -> None:
-        result = trending_result_from_rows([["A", 1, 1], ["B", 2, 2], ["C", 3, 3]])
-        assert len(result.results) == 3
-
-    def test_titles_mapped(self) -> None:
-        result = trending_result_from_rows([["AI news", 100, 4]])
-        assert result.results[0].title == "AI news"
-
-    def test_empty_rows(self) -> None:
-        result = trending_result_from_rows([])
-        assert result.results == []
 
 
 class TestSuggestionRowsToTopics:

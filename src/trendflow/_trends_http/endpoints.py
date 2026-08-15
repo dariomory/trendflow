@@ -21,4 +21,7 @@ REALTIME_TRENDING: Final[str] = f"{BASE_TRENDS_URL}/api/realtimetrends"
 # REALTIME_TRENDING above are all retired by Google and now return 404; this replaces them.
 BATCH_EXECUTE: Final[str] = "https://trends.google.com/_/TrendsUi/data/batchexecute"
 
+# Trending Now as an RSS feed. Independent of the RPC, and the only source with articles.
+TRENDING_RSS: Final[str] = "https://trends.google.com/trending/rss"
+
 HTTP_TOO_MANY_REQUESTS: Final[int] = 429

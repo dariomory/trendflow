@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -60,16 +60,35 @@ class InterestByRegionResult:
 
 
 @dataclass(frozen=True)
-class TrendingItem:
-    """A single trending search entry."""
+class TrendingArticle:
+    """A news article behind a trending search. Only the RSS backend reports these."""
 
     title: str
+    url: str
+    source: str
+    picture: str | None = None
+
+
+@dataclass(frozen=True)
+class TrendingItem:
+    """
+    A single trending search entry.
+
+    Both backends fill ``title`` and ``traffic``; the rest depends on which one answered,
+    since Google exposes different fields on each. See :attr:`TrendingResult.source`.
+    """
+
+    title: str
+    #: Human-readable traffic: ``"+3,950%"`` from the RPC, ``"2000+"`` from RSS.
     traffic: str
-    articles: list[str]
-    #: Percentage increase in searches over the window, e.g. ``3950`` for a 3,950% rise.
+    #: News articles behind the trend. RSS backend only; empty from the RPC.
+    articles: list[TrendingArticle] = field(default_factory=list)
+    #: Percentage increase over the window, e.g. ``3950``. RPC backend only.
     growth: int | None = None
-    #: Relative search volume for the term, on Google's own 0-100 style scale.
+    #: Relative search volume, on Google's own 0-100 style scale. RPC backend only.
     volume: int | None = None
+    #: When Google started reporting the trend. RSS backend only.
+    started_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -77,6 +96,8 @@ class TrendingResult:
     """Current trending searches for a region."""
 
     results: list[TrendingItem]
+    #: Which backend answered -- useful when ``backend="auto"`` picked for you.
+    source: str = "rpc"
 
 
 @dataclass(frozen=True)

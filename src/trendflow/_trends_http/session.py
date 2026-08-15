@@ -11,6 +11,7 @@ import httpx
 
 from trendflow._trends_http import endpoints as ep
 from trendflow._trends_http.batchexecute import BatchExecuteClient
+from trendflow._trends_http.rss import TrendingRssClient
 from trendflow._trends_http.transport import TrendsJsonTransport
 
 logger = logging.getLogger(__name__)
@@ -92,6 +93,12 @@ class GoogleTrendsHttpSession:
             proxy=self.proxies[0] if self.proxies else None,
         )
 
+        self._rss = TrendingRssClient(
+            timeout=self.timeout,
+            headers=dict(headers),
+            proxy=self.proxies[0] if self.proxies else None,
+        )
+
         self.token_payload: dict[str, Any] = {}
         self.interest_over_time_widget: dict[str, Any] = {}
         self.interest_by_region_widget: dict[str, Any] = {}
@@ -107,6 +114,7 @@ class GoogleTrendsHttpSession:
         self.proxies = [proxy_url]
         self._http.set_proxy(proxy_url)
         self._rpc.proxy = proxy_url
+        self._rss.proxy = proxy_url
 
     def reset_cookies(self) -> None:
         """Drop the cookie jar; the cached widget tokens are re-fetched by build_payload."""
@@ -320,6 +328,16 @@ class GoogleTrendsHttpSession:
     def suggestions(self, query: str) -> list[list[Any]]:
         """Entity suggestions for a partial query."""
         return self._rpc.suggestions(query)
+
+    @property
+    def rpc_client(self) -> BatchExecuteClient:
+        """The RPC client, for building a trending provider around."""
+        return self._rpc
+
+    @property
+    def rss_client(self) -> TrendingRssClient:
+        """The RSS client, for building a trending provider around."""
+        return self._rss
 
     def today_searches(self, pn: str = "US") -> list[str]:
         """Today's search titles for ``pn`` (country code)."""

@@ -82,6 +82,8 @@ Current: [`trendflow-py`](https://github.com/dariomory/trendflow) 0.2.0 · [`tre
 | Trending now | ✅ | ✅ |
 | Trending growth % and volume | ✅ | ✅ |
 | Trending for any country code | ✅ | ✅ |
+| Trending news articles (RSS) | ✅ | ✅ |
+| Selectable trending backend | ✅ | ✅ |
 | Related queries | ✅ | ✅ |
 | Search suggestions | ✅ `suggestions()` | ✅ `suggestions()` |
 | Query by topic (entity mid) | ✅ | ✅ |
@@ -118,6 +120,35 @@ for item in trending.results:
 Pass `window=TRENDING_WINDOW_TOP` for the highest-volume searches instead of the
 fastest-growing ones. `window` is an undocumented Google parameter; other integers between
 4 and 12 also return data over varying recency windows.
+
+### Trending backends: RPC and RSS
+
+Google exposes trending searches two ways. They are not interchangeable, so `backend` lets
+you pick:
+
+| | `"rpc"` (`batchexecute`) | `"rss"` (feed) |
+|---|---|---|
+| items | 50 | 10 |
+| payload | ~2 KB JSON | ~21 KB XML |
+| growth % and volume | ✅ | ❌ — buckets like `"2000+"` |
+| news articles | ❌ | ✅ |
+| ``window`` selection | ✅ | ignored by Google |
+| worldwide | ✅ | ❌ country only |
+
+```python
+rss = tf.trending_now(Region.US, backend="rss")
+rss.source  # "rss"
+rss.results[0].articles
+# [TrendingArticle(title='...', url='https://...', source='Buffalo News', picture='https://...')]
+```
+
+`"auto"` (the default) tries the RPC and falls back to the feed. The RPC comes first
+deliberately: it returns five times the items with real growth figures, so defaulting to RSS
+would quietly degrade results. Reach for `"rss"` when you want the **articles** — that is the
+one thing the RPC cannot give you — or as a second opinion if the RPC id ever goes stale.
+
+Note that the feed is not a lighter path despite being a feed, and Google ignores `hours`,
+`sort` and `count` on it: it always returns the same 10 entries.
 
 ### Topics and search suggestions
 
@@ -168,7 +199,7 @@ from trendflow import Region
 tf = trendflow.Client(
     proxies=[
         "http://user:pass@gate.decodo.com:7000",
-        "http://user:pass@pr.oxylabs.io:7777",
+        "http://user:pass@gate.decodo.com:7000",
     ],
     max_proxy_attempts=3,  # defaults to the pool size, capped at 5
     on_proxy_rotate=lambda attempt, error: print(f"rotated after {attempt}: {error!r}"),
@@ -178,7 +209,7 @@ trending = tf.trending_now(Region.US)
 print(tf.current_proxy)  # the proxy that answered
 ```
 
-Mixing providers in one pool is fine; they are just URLs.
+Entries are just URLs, so a pool can mix providers. Repeating one rotating gateway also works: each entry gets its own connection, so it lands on a fresh exit IP.
 
 **Rotation happens per query, not per request — this matters.** Google binds the `NID`
 cookie and the widget token to the IP that requested them, so a single query must complete
@@ -191,19 +222,15 @@ Rotation is skipped for errors a different IP cannot fix, such as a `404` or a r
 
 #### Where to get proxies
 
-Residential proxies are what actually clears Google's `429`. Two providers verified against
-this library:
+Residential proxies are what actually clears Google's `429`. Verified against this library:
 
 <p align="center">
-  <a href="https://decodo.com/"><img src="docs/proxies/decodo.svg" alt="Decodo" height="56"/></a>
-  &nbsp;&nbsp;
-  <a href="https://oxylabs.io/"><img src="docs/proxies/oxylabs.svg" alt="Oxylabs" height="56"/></a>
+  <a href="https://dashboard.decodo.com/register?referral_code=821058adf31e1b797a169971f79daf86fd5ebbbc"><img src="docs/proxies/decodo.svg" alt="Decodo" height="56"/></a>
 </p>
 
 | Provider | Notes | Endpoint format |
 |----------|-------|-----------------|
-| [Decodo](https://decodo.com/) (formerly Smartproxy) | Cheapest entry tier; pay-as-you-go available. Used to verify this library's live tests. | `http://user:pass@gate.decodo.com:7000` |
-| [Oxylabs](https://oxylabs.io/) | Larger pool and better Google success rates; enterprise pricing. | `http://user:pass@pr.oxylabs.io:7777` |
+| [Decodo](https://dashboard.decodo.com/register?referral_code=821058adf31e1b797a169971f79daf86fd5ebbbc) (formerly Smartproxy) | Cheapest entry tier; pay-as-you-go available. Used to verify this library's live tests. | `http://user:pass@gate.decodo.com:7000` |
 
 Ask for **sticky sessions** when you sign up — per-request rotating endpoints break the
 cookie/token binding described above. Note that a shared residential pool can be exhausted

@@ -4,6 +4,12 @@ from collections.abc import Callable, Sequence
 from typing import Any, Final, Protocol, TypeVar, runtime_checkable
 
 from trendflow import _parsers
+from trendflow._providers import (
+    RpcTrendingProvider,
+    RssTrendingProvider,
+    TrendingBackend,
+    TrendingProvider,
+)
 from trendflow._proxy import ProxyPool
 from trendflow._trends_http import GoogleTrendsHttpSession
 from trendflow._trends_http.batchexecute import UnknownRpcError
@@ -72,7 +78,12 @@ class TrendsFetcher(Protocol):
         region: Region = Region.US,
     ) -> InterestByRegionResult: ...
 
-    def trending_now(self, region: Region | str = Region.WORLDWIDE, window: int = ...) -> TrendingResult: ...
+    def trending_now(
+        self,
+        region: Region | str = Region.WORLDWIDE,
+        window: int = ...,
+        backend: TrendingBackend = ...,
+    ) -> TrendingResult: ...
 
     def related_queries(self, keyword: str) -> RelatedResult: ...
 
@@ -109,6 +120,8 @@ class GoogleTrendsFetcher:
             timeout=to,
             proxies=[self._pool.current()] if self._pool else "",
         )
+        self._rpc_trending: TrendingProvider = RpcTrendingProvider(self._req.rpc_client)
+        self._rss_trending: TrendingProvider = RssTrendingProvider(self._req.rss_client)
 
     @property
     def current_proxy(self) -> str | None:
@@ -185,6 +198,7 @@ class GoogleTrendsFetcher:
         self,
         region: Region | str = Region.WORLDWIDE,
         window: int = TRENDING_WINDOW_RISING,
+        backend: TrendingBackend = "auto",
     ) -> TrendingResult:
         """
         Trending searches for ``region``.
@@ -192,13 +206,36 @@ class GoogleTrendsFetcher:
         Accepts any country code, not a fixed list, and worldwide works too. ``window``
         selects fastest-growing (:data:`TRENDING_WINDOW_RISING`) versus highest-volume
         (:data:`TRENDING_WINDOW_TOP`) results.
+
+        ``backend`` selects the source:
+
+        * ``"rpc"`` -- 50 items with growth percentages and volume.
+        * ``"rss"`` -- 10 items with the **news articles** behind each trend, which the RPC
+          does not carry, but no growth figures. ``window`` does not apply: Google ignores
+          it on the feed. There is no worldwide feed, so a country code is required.
+        * ``"auto"`` (default) -- the RPC, falling back to RSS if it fails. RPC first
+          because it returns five times the items with real growth numbers; defaulting to
+          RSS would quietly degrade results.
+
+        :attr:`TrendingResult.source` reports which one answered.
         """
+        geo = _trending_geo(region)
 
-        def run() -> TrendingResult:
-            rows = self._req.trending_searches(geo=_trending_geo(region), window=window)
-            return _parsers.trending_result_from_rows(rows)
+        def run(provider: TrendingProvider) -> TrendingResult:
+            return TrendingResult(results=provider.fetch(geo, window), source=provider.source)
 
-        return self._with_rotation(run)
+        if backend == "rpc":
+            return self._with_rotation(lambda: run(self._rpc_trending))
+        if backend == "rss":
+            return self._with_rotation(lambda: run(self._rss_trending))
+
+        def auto() -> TrendingResult:
+            try:
+                return run(self._rpc_trending)
+            except Exception:  # noqa: BLE001 - the feed is a separate source; any RPC failure falls back
+                return run(self._rss_trending)
+
+        return self._with_rotation(auto)
 
     def related_queries(self, keyword: str) -> RelatedResult:
         def run() -> RelatedResult:

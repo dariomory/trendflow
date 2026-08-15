@@ -197,48 +197,48 @@ class TestInterestByRegion:
 class TestTrendingNow:
     def test_worldwide_is_allowed(self) -> None:
         fetcher, req = _make_fetcher()
-        req.trending_searches.return_value = []
+        req.rpc_client.trending_searches.return_value = []
 
         fetcher.trending_now(region=Region.WORLDWIDE)
 
-        req.trending_searches.assert_called_once_with(geo="Worldwide", window=TRENDING_WINDOW_RISING)
+        req.rpc_client.trending_searches.assert_called_once_with("Worldwide", TRENDING_WINDOW_RISING)
 
     def test_defaults_to_worldwide(self) -> None:
         fetcher, req = _make_fetcher()
-        req.trending_searches.return_value = []
+        req.rpc_client.trending_searches.return_value = []
 
         fetcher.trending_now()
 
-        req.trending_searches.assert_called_once_with(geo="Worldwide", window=TRENDING_WINDOW_RISING)
+        req.rpc_client.trending_searches.assert_called_once_with("Worldwide", TRENDING_WINDOW_RISING)
 
     def test_region_passed_as_geo(self) -> None:
         fetcher, req = _make_fetcher()
-        req.trending_searches.return_value = [["AI", 100, 5]]
+        req.rpc_client.trending_searches.return_value = [["AI", 100, 5]]
 
         result = fetcher.trending_now(region=Region.US)
 
-        req.trending_searches.assert_called_once_with(geo="US", window=TRENDING_WINDOW_RISING)
+        req.rpc_client.trending_searches.assert_called_once_with("US", TRENDING_WINDOW_RISING)
         assert isinstance(result, TrendingResult)
 
     def test_arbitrary_country_code_accepted(self) -> None:
         fetcher, req = _make_fetcher()
-        req.trending_searches.return_value = []
+        req.rpc_client.trending_searches.return_value = []
 
         fetcher.trending_now(region="PT")
 
-        req.trending_searches.assert_called_once_with(geo="PT", window=TRENDING_WINDOW_RISING)
+        req.rpc_client.trending_searches.assert_called_once_with("PT", TRENDING_WINDOW_RISING)
 
     def test_window_is_forwarded(self) -> None:
         fetcher, req = _make_fetcher()
-        req.trending_searches.return_value = []
+        req.rpc_client.trending_searches.return_value = []
 
         fetcher.trending_now(region=Region.US, window=TRENDING_WINDOW_TOP)
 
-        req.trending_searches.assert_called_once_with(geo="US", window=TRENDING_WINDOW_TOP)
+        req.rpc_client.trending_searches.assert_called_once_with("US", TRENDING_WINDOW_TOP)
 
     def test_parses_growth_and_volume(self) -> None:
         fetcher, req = _make_fetcher()
-        req.trending_searches.return_value = [["AI tools", 3950, 7], ["Python 4", 850, 6]]
+        req.rpc_client.trending_searches.return_value = [["AI tools", 3950, 7], ["Python 4", 850, 6]]
 
         result = fetcher.trending_now(region=Region.US)
 

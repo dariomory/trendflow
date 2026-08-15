@@ -4,6 +4,7 @@ from trendflow._fetcher import (
     GoogleTrendsFetcher,
     TrendsFetcher,
 )
+from trendflow._providers import TrendingBackend
 from trendflow._trends_http.batchexecute import UnknownRpcError
 from trendflow.enums import ExportFormat, Region, Resolution, Timeframe
 from trendflow.models import (
@@ -12,6 +13,7 @@ from trendflow.models import (
     RelatedQuery,
     RelatedResult,
     TopicSuggestion,
+    TrendingArticle,
     TrendingItem,
     TrendingResult,
     TrendPoint,
@@ -33,6 +35,8 @@ __all__ = [
     "Resolution",
     "Timeframe",
     "TopicSuggestion",
+    "TrendingArticle",
+    "TrendingBackend",
     "TrendingItem",
     "TrendingResult",
     "TrendPoint",
