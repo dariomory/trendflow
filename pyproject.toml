@@ -50,8 +50,10 @@ docs = [
 [project.urls]
 bugs = "https://github.com/dariomory/trendflow/issues"
 changelog = "https://github.com/dariomory/trendflow/releases"
-documentation = "https://dariomory.github.io/trendflow/"
-homepage = "https://github.com/dariomory/trendflow"
+documentation = "https://trendflow.mory.dev/docs/python"
+homepage = "https://trendflow.mory.dev"
+repository = "https://github.com/dariomory/trendflow"
+api-reference = "https://dariomory.github.io/trendflow/"
 
 [project.scripts]
 trendflow = "trendflow.cli:app"
