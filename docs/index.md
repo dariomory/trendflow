@@ -2,15 +2,32 @@
   <img src="logo.png" alt="Trendflow logo" width="280"/>
 </p>
 
-# Trendflow
+# Trendflow — Python API reference
 
-A type-safe Python library for querying, streaming, and exporting Google Trends data.
+Every class, method, and dataclass in [`trendflow-py`](https://pypi.org/project/trendflow-py/),
+generated from the source docstrings on each commit.
 
-The HTTP client returns raw JSON; parsing into dataclasses lives in `trendflow._parsers`, and the high-level [`GoogleTrendsFetcher`](usage.md) (exposed as [`Client`](usage.md)) ties it together. See [Architecture](architecture.md) for the full layout.
+**Looking for guides?** The full documentation — installation, usage, trending backends,
+topics, proxies and rate limits — lives at
+**[trendflow.mory.dev/docs/python](https://trendflow.mory.dev/docs/python)**, alongside the
+[JavaScript documentation](https://trendflow.mory.dev/docs/js) and the
+[hosted MCP server](https://trendflow.mory.dev/docs/mcp) for ChatGPT, Claude, and Cursor.
 
-## Getting started
+```bash
+pip install trendflow-py
+```
 
-- [Installation](installation.md) — how to install Trendflow
-- [Architecture](architecture.md) — layers (`_trends_http`, `_parsers`, `_fetcher`, `models`)
-- [Usage](usage.md) — how to use Trendflow
-- [API Reference](api.md) — auto-generated API documentation
+## On this site
+
+- [API Reference](api.md) — every public symbol, generated from docstrings.
+- [Architecture](architecture.md) — how the layers fit together: `_trends_http` holds the HTTP
+  session, `_parsers` turns raw JSON into dataclasses, `_fetcher` provides the high-level
+  `Client`, and `models` carries the results.
+
+## Links
+
+- Guides and canonical documentation: [trendflow.mory.dev](https://trendflow.mory.dev)
+- Source: [github.com/dariomory/trendflow](https://github.com/dariomory/trendflow)
+- Package: [pypi.org/project/trendflow-py](https://pypi.org/project/trendflow-py/)
+- JavaScript sibling: [`trendflow`](https://www.npmjs.com/package/trendflow)
+- MIT licensed, by [Dario Mory](https://mory.dev)

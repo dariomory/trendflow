@@ -5,11 +5,14 @@ repo_url = "https://github.com/dariomory/trendflow"
 repo_name = "dariomory/trendflow"
 nav = [
   { "Home" = "index.md" },
-  { "Architecture" = "architecture.md" },
-  { "Installation" = "installation.md" },
-  { "Usage" = "usage.md" },
   { "API Reference" = "api.md" },
+  { "Architecture" = "architecture.md" },
 ]
+
+# The guides live in `guides/` rather than `docs/` on purpose. trendflow.mory.dev renders
+# those very files straight from this repo as the canonical documentation; building them here
+# too would put identical prose on two domains and split the ranking. This site publishes only
+# what is unique to it — the API reference generated from docstrings.
 
 [project.theme]
 logo = "logo.png"
