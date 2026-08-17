@@ -224,3 +224,34 @@ class TestRelatedQueriesWidgets:
         session.related_topics_widget_list = []
         result = session.related_topics()
         assert result == {}
+
+
+class TestRankedKeywords:
+    """
+    Google answers a related-searches widget with two ranked blocks when it has data and an
+    **empty list** when it does not. Related topics now always answers that way, and indexing
+    an empty list raised IndexError past the `except KeyError` that was meant to guard it — so
+    "Google has nothing" arrived as a crash. `related_queries` carried the same bug and only
+    escaped it because Google still answers that one with data.
+    """
+
+    @staticmethod
+    def _extract(payload: object, index: int) -> object:
+        return GoogleTrendsHttpSession._ranked_keywords(payload, index)
+
+    def test_reads_a_present_block(self) -> None:
+        payload = {"default": {"rankedList": [{"rankedKeyword": [{"query": "a"}]}]}}
+        assert self._extract(payload, 0) == [{"query": "a"}]
+
+    def test_empty_ranked_list_yields_none(self) -> None:
+        # The exact shape related topics returns today.
+        assert self._extract({"default": {"rankedList": []}}, 0) is None
+        assert self._extract({"default": {"rankedList": []}}, 1) is None
+
+    def test_one_block_present_but_not_the_second(self) -> None:
+        payload = {"default": {"rankedList": [{"rankedKeyword": [{"query": "a"}]}]}}
+        assert self._extract(payload, 1) is None
+
+    def test_malformed_payloads_yield_none(self) -> None:
+        for payload in [None, {}, {"default": None}, {"default": {}}, [], "text", 0]:
+            assert self._extract(payload, 0) is None

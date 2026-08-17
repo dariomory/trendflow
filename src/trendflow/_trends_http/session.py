@@ -254,6 +254,24 @@ class GoogleTrendsHttpSession:
                     logger.warning("Could not find geo_code column; skipping")
         return default
 
+    @staticmethod
+    def _ranked_keywords(payload: Any, index: int) -> list[dict[str, Any]] | None:
+        """
+        One ranked block from a related-searches response, or ``None`` when it is absent.
+
+        Google returns ``rankedList`` with two blocks -- top and rising -- when it has data, and
+        an **empty list** when it does not. Related topics now always answers that way. Indexing
+        an empty list raises ``IndexError``, which the surrounding ``except KeyError`` did not
+        catch, so "Google has nothing" surfaced as a crash rather than an empty result.
+
+        ``related_queries`` had the same latent bug and only survived because Google still
+        answers it with data.
+        """
+        try:
+            return list(payload["default"]["rankedList"][index]["rankedKeyword"])
+        except (KeyError, IndexError, TypeError):
+            return None
+
     def related_topics(self) -> dict[str, dict[str, list[dict[str, Any]] | None]]:
         """Per-keyword related topics: ``top`` / ``rising`` lists of ranked-keyword dicts."""
         result_dict: dict[str, dict[str, list[dict[str, Any]] | None]] = {}
@@ -273,15 +291,10 @@ class GoogleTrendsHttpSession:
                 trim_chars=5,
                 params=related_payload,
             )
-            try:
-                top_list = req_json["default"]["rankedList"][0]["rankedKeyword"]
-            except KeyError:
-                top_list = None
-            try:
-                rising_list = req_json["default"]["rankedList"][1]["rankedKeyword"]
-            except KeyError:
-                rising_list = None
-            result_dict[kw] = {"rising": rising_list, "top": top_list}
+            result_dict[kw] = {
+                "top": self._ranked_keywords(req_json, 0),
+                "rising": self._ranked_keywords(req_json, 1),
+            }
         return result_dict
 
     def related_queries(self) -> dict[str, dict[str, list[dict[str, Any]] | None]]:
@@ -303,14 +316,8 @@ class GoogleTrendsHttpSession:
                 trim_chars=5,
                 params=related_payload,
             )
-            try:
-                top_list = list(req_json["default"]["rankedList"][0]["rankedKeyword"])
-            except KeyError:
-                top_list = None
-            try:
-                rising_list = list(req_json["default"]["rankedList"][1]["rankedKeyword"])
-            except KeyError:
-                rising_list = None
+            top_list = self._ranked_keywords(req_json, 0)
+            rising_list = self._ranked_keywords(req_json, 1)
             result_dict[kw] = {"top": top_list, "rising": rising_list}
         return result_dict
 
