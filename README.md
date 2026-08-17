@@ -23,15 +23,16 @@ A type-safe Python library for querying, streaming, and exporting Google Trends 
 
 ```python
 import trendflow
-from trendflow import Region, Timeframe, Resolution, ExportFormat
+from trendflow import Region, Timeframe, Resolution, SearchProperty, ExportFormat
 
 # Initialize client (optional API config)
 tf = trendflow.Client(language="en", timeout=10)
 
 # --- Enums for type safety ---
-# Region.US, Region.GB, Region.DE ...
-# Timeframe.PAST_DAY, Timeframe.PAST_WEEK, Timeframe.PAST_YEAR, Timeframe.PAST_5_YEARS
+# Region.US, Region.GB, Region.DE ...             (or any code: "US-CA", "807")
+# Timeframe.PAST_HOUR ... PAST_5_YEARS, ALL_TIME  (or "2023-01-01 2023-06-30")
 # Resolution.COUNTRY, Resolution.REGION, Resolution.CITY
+# SearchProperty.WEB, IMAGES, NEWS, YOUTUBE, SHOPPING
 
 # Fetch interest over time
 data = tf.interest_over_time(
@@ -56,12 +57,25 @@ trending = tf.trending_now(region=Region.US)
 for item in trending.results:
     print(item.title, item.traffic, item.articles)  # TrendingItem dataclass
 
-# Related queries — returns RelatedResult dataclass
-related = tf.related_queries("machine learning")
+# Related queries — returns RelatedResult dataclass (region defaults to worldwide)
+related = tf.related_queries("machine learning", region=Region.GB)
 for query in related.top:
     print(query.term, query.value)    # RelatedQuery(term, value)
 for query in related.rising:
     print(query.term, query.breakout) # RelatedQuery(term, breakout%)
+
+# --- Narrowing a query ---
+# Every query method takes an optional category and search property, and any of them
+# accepts a custom date range and a sub-region or metro code in place of the named values.
+
+# "jaguar" the car, on YouTube, in California, over the first half of 2023
+jaguar = tf.interest_over_time(
+    keywords=["jaguar"],
+    timeframe="2023-01-01 2023-06-30",
+    region="US-CA",
+    category=47,  # Autos & Vehicles — disambiguates without needing a topic id
+    search_property=SearchProperty.YOUTUBE,
+)
 
 # --- Exports ---
 data.export(ExportFormat.CSV,  path="trends.csv")
@@ -73,7 +87,7 @@ data.to_dataframe()  # pandas DataFrame
 
 Trendflow also ships as a JavaScript/TypeScript library: [`trendflow-js`](https://github.com/dariomory/trendflow-js) ([npm: `trendflow`](https://www.npmjs.com/package/trendflow)).
 
-Current: [`trendflow-py`](https://github.com/dariomory/trendflow) 0.2.0 · [`trendflow`](https://github.com/dariomory/trendflow-js) 0.1.0. Versions are independent; each changelog cross-references the sibling release.
+Current: [`trendflow-py`](https://github.com/dariomory/trendflow) 0.3.0 · [`trendflow`](https://github.com/dariomory/trendflow-js) 0.3.0. Versions are independent; each changelog cross-references the sibling release.
 
 | Feature | Python — [`trendflow-py`](https://pypi.org/project/trendflow-py/) | JS — [`trendflow`](https://www.npmjs.com/package/trendflow) |
 |---------|:----------------------------------:|:---------------------------:|
@@ -87,6 +101,10 @@ Current: [`trendflow-py`](https://github.com/dariomory/trendflow) 0.2.0 · [`tre
 | Related queries | ✅ | ✅ |
 | Search suggestions | ✅ `suggestions()` | ✅ `suggestions()` |
 | Query by topic (entity mid) | ✅ | ✅ |
+| Category filter | ✅ | ✅ |
+| Search property (YouTube, News, …) | ✅ | ✅ |
+| Custom date ranges | ✅ | ✅ |
+| Sub-regions and metro codes | ✅ | ✅ |
 | CSV / JSON export | ✅ | ✅ |
 | Rotating proxy pool | ✅ | ✅ |
 | Browser User-Agent by default | ✅ | ✅ |
