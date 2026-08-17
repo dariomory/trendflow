@@ -49,8 +49,36 @@ class TestTimeframe:
     def test_past_5_years_value(self) -> None:
         assert Timeframe.PAST_5_YEARS == "today 5-y"
 
-    def test_all_four_timeframes_exist(self) -> None:
-        assert len(list(Timeframe)) == 4
+    def test_past_hour_value(self) -> None:
+        assert Timeframe.PAST_HOUR == "now 1-H"
+
+    def test_past_4_hours_value(self) -> None:
+        assert Timeframe.PAST_4_HOURS == "now 4-H"
+
+    def test_past_month_value(self) -> None:
+        assert Timeframe.PAST_MONTH == "today 1-m"
+
+    def test_past_3_months_value(self) -> None:
+        assert Timeframe.PAST_3_MONTHS == "today 3-m"
+
+    def test_all_time_value(self) -> None:
+        assert Timeframe.ALL_TIME == "all"
+
+    def test_every_member_is_asserted_above(self) -> None:
+        # A count alone breaks on every addition without saying what is wrong. Naming the
+        # members means a new one fails here only if nobody wrote a test for its value.
+        asserted = {
+            "now 1-H",
+            "now 4-H",
+            "now 1-d",
+            "now 7-d",
+            "today 1-m",
+            "today 3-m",
+            "today 12-m",
+            "today 5-y",
+            "all",
+        }
+        assert {str(t) for t in Timeframe} == asserted
 
     def test_str_serialization(self) -> None:
         assert str(Timeframe.PAST_DAY) == "now 1-d"

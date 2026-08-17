@@ -6,7 +6,7 @@ from trendflow._fetcher import (
 )
 from trendflow._providers import TrendingBackend
 from trendflow._trends_http.batchexecute import UnknownRpcError
-from trendflow.enums import ExportFormat, Region, Resolution, Timeframe
+from trendflow.enums import ExportFormat, Region, Resolution, SearchProperty, Timeframe
 from trendflow.models import (
     InterestByRegionResult,
     InterestOverTimeResult,
@@ -33,6 +33,7 @@ __all__ = [
     "RelatedResult",
     "Region",
     "Resolution",
+    "SearchProperty",
     "Timeframe",
     "TopicSuggestion",
     "TrendingArticle",
