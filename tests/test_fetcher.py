@@ -406,3 +406,38 @@ class TestSearchPropertyValidation:
         )
 
         assert req.build_payload.call_args.kwargs["gprop"] == "news"
+
+
+class TestRpcIdOverride:
+    """
+    The escape hatch `UnknownRpcError` points callers at.
+
+    `BatchExecuteClient` accepted `rpc_ids` all along, but nothing plumbed it through the
+    session, so the public `Client` could not reach it — the error told users to do something
+    the library did not support. These pin the wiring end to end.
+    """
+
+    def test_override_reaches_the_rpc_client(self) -> None:
+        with patch("trendflow._fetcher.GoogleTrendsHttpSession") as mock_cls:
+            mock_cls.return_value = MagicMock(geo="")
+            GoogleTrendsFetcher(rpc_ids={"trending": "newId"})
+
+        assert mock_cls.call_args.kwargs["rpc_ids"] == {"trending": "newId"}
+
+    def test_absent_by_default(self) -> None:
+        with patch("trendflow._fetcher.GoogleTrendsHttpSession") as mock_cls:
+            mock_cls.return_value = MagicMock(geo="")
+            GoogleTrendsFetcher()
+
+        assert mock_cls.call_args.kwargs["rpc_ids"] is None
+
+    def test_session_hands_the_ids_to_batchexecute(self) -> None:
+        # The half that was missing: the session dropped the argument on the floor.
+        from trendflow._trends_http.session import GoogleTrendsHttpSession
+
+        session = GoogleTrendsHttpSession(rpc_ids={"suggestions": "sugId", "geo_list": "geoId"})
+
+        assert session.rpc_client.suggestions_rpc_id == "sugId"
+        assert session.rpc_client.geo_list_rpc_id == "geoId"
+        # Anything not overridden keeps the pinned default.
+        assert session.rpc_client.trending_rpc_id == "fXqlme"
