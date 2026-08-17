@@ -55,6 +55,7 @@ class GoogleTrendsHttpSession:
         retries: int = 0,
         backoff_factor: float = 0,
         requests_args: Mapping[str, Any] | None = None,
+        rpc_ids: Mapping[str, str] | None = None,
     ) -> None:
         self.tz = tz
         self.hl = hl
@@ -90,6 +91,7 @@ class GoogleTrendsHttpSession:
             hl=self.hl,
             timeout=self.timeout,
             headers=dict(headers),
+            rpc_ids=rpc_ids,
             proxy=self.proxies[0] if self.proxies else None,
         )
 

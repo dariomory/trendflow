@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Final, Protocol, TypeVar, cast, runtime_checkable
 
 from trendflow import _parsers
@@ -146,6 +146,7 @@ class GoogleTrendsFetcher:
         proxies: Sequence[str] | None = None,
         max_proxy_attempts: int | None = None,
         on_proxy_rotate: Callable[[int, Exception], None] | None = None,
+        rpc_ids: Mapping[str, str] | None = None,
     ) -> None:
         """
         ``proxies`` is a list of proxy URLs to rotate through, from any mix of providers.
@@ -154,6 +155,11 @@ class GoogleTrendsFetcher:
         Google binds its cookie and widget token to the exit IP. ``max_proxy_attempts``
         defaults to the pool size, capped at 5; ``on_proxy_rotate(attempt, error)`` is called
         each time the pool advances.
+
+        ``rpc_ids`` repoints a `batchexecute` identifier that Google has renamed --
+        ``{"trending": "...", "geo_list": "...", "suggestions": "..."}``, any subset. This is
+        the escape hatch :class:`UnknownRpcError` refers to: a rename can be worked around in
+        the caller, with no release and no fork.
         """
         to = (timeout, max(timeout * 2, timeout + 5))
         self._pool = ProxyPool(proxies) if proxies else None
@@ -165,6 +171,7 @@ class GoogleTrendsFetcher:
             tz=360,
             timeout=to,
             proxies=[self._pool.current()] if self._pool else "",
+            rpc_ids=rpc_ids,
         )
         self._rpc_trending: TrendingProvider = RpcTrendingProvider(self._req.rpc_client)
         self._rss_trending: TrendingProvider = RssTrendingProvider(self._req.rss_client)
