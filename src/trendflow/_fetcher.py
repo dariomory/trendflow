@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from typing import Any, Final, Protocol, TypeVar, runtime_checkable
+from typing import Any, Final, Protocol, TypeVar, cast, runtime_checkable
 
 from trendflow import _parsers
 from trendflow._providers import (
@@ -14,7 +14,8 @@ from trendflow._proxy import ProxyPool
 from trendflow._trends_http import GoogleTrendsHttpSession
 from trendflow._trends_http.batchexecute import UnknownRpcError
 from trendflow._trends_http.exceptions import ResponseError, TooManyRequestsError
-from trendflow.enums import Region, Resolution, Timeframe
+from trendflow._trends_http.session import Gprop
+from trendflow.enums import Region, Resolution, SearchProperty, Timeframe
 from trendflow.models import (
     InterestByRegionResult,
     InterestOverTimeResult,
@@ -36,6 +37,36 @@ def _trending_geo(region: Region | str) -> str:
 T = TypeVar("T")
 
 HTTP_FORBIDDEN: Final[int] = 403
+
+#: Accepted search properties, mirroring the session's ``Gprop`` literal.
+_SEARCH_PROPERTIES: Final[frozenset[str]] = frozenset(str(p) for p in SearchProperty)
+
+
+def _param(value: object) -> str:
+    """
+    The wire value for a geo or timeframe.
+
+    These are ``StrEnum``s, so a member already *is* its string. Going through ``str`` rather
+    than ``.value`` is what lets callers pass a plain string -- a custom date range, or one of
+    the ~250 region codes and sub-regions that are not enum members.
+    """
+    return str(value)
+
+
+def _gprop(value: SearchProperty | str) -> Gprop:
+    """
+    Narrow a search property to the literal the session accepts.
+
+    The session validates as well, but only once a payload is being built. Checking here means
+    a mistyped plain string fails immediately with the allowed values, rather than surfacing
+    later as something that looks like a network problem.
+    """
+    text = str(value)
+    if text not in _SEARCH_PROPERTIES:
+        allowed = ", ".join(repr(p) for p in _SEARCH_PROPERTIES)
+        msg = f"search_property must be one of {allowed}; got {text!r}"
+        raise ValueError(msg)
+    return cast("Gprop", text)
 
 
 def _should_rotate(error: Exception) -> bool:
@@ -67,15 +98,22 @@ class TrendsFetcher(Protocol):
     def interest_over_time(
         self,
         keywords: list[str],
-        timeframe: Timeframe,
-        region: Region,
+        timeframe: Timeframe | str,
+        region: Region | str,
+        *,
+        category: int = 0,
+        search_property: SearchProperty | str = SearchProperty.WEB,
     ) -> InterestOverTimeResult: ...
 
     def interest_by_region(
         self,
         keyword: str,
         resolution: Resolution,
-        region: Region = Region.US,
+        region: Region | str = Region.US,
+        *,
+        timeframe: Timeframe | str = Timeframe.PAST_YEAR,
+        category: int = 0,
+        search_property: SearchProperty | str = SearchProperty.WEB,
     ) -> InterestByRegionResult: ...
 
     def trending_now(
@@ -85,7 +123,15 @@ class TrendsFetcher(Protocol):
         backend: TrendingBackend = ...,
     ) -> TrendingResult: ...
 
-    def related_queries(self, keyword: str) -> RelatedResult: ...
+    def related_queries(
+        self,
+        keyword: str,
+        *,
+        timeframe: Timeframe | str = Timeframe.PAST_YEAR,
+        region: Region | str = Region.WORLDWIDE,
+        category: int = 0,
+        search_property: SearchProperty | str = SearchProperty.WEB,
+    ) -> RelatedResult: ...
 
     def suggestions(self, query: str) -> list[TopicSuggestion]: ...
 
@@ -153,16 +199,29 @@ class GoogleTrendsFetcher:
     def interest_over_time(
         self,
         keywords: list[str],
-        timeframe: Timeframe,
-        region: Region,
+        timeframe: Timeframe | str,
+        region: Region | str,
+        *,
+        category: int = 0,
+        search_property: SearchProperty | str = SearchProperty.WEB,
     ) -> InterestOverTimeResult:
+        """
+        Relative interest for up to five terms over ``timeframe``.
+
+        ``timeframe`` takes a :class:`Timeframe` or a custom ``"YYYY-MM-DD YYYY-MM-DD"`` range,
+        and ``region`` any Google geo code -- a country, a sub-region like ``"US-CA"``, or a
+        metro code. ``category`` restricts to one subject area, which disambiguates without a
+        topic id: "jaguar" under Autos is the car. ``search_property`` chooses the surface;
+        results from different properties are separate indexes and not comparable.
+        """
+
         def run() -> InterestOverTimeResult:
             self._req.build_payload(
                 keywords,
-                cat=0,
-                timeframe=timeframe.value,
-                geo=region.value,
-                gprop="",
+                cat=category,
+                timeframe=_param(timeframe),
+                geo=_param(region),
+                gprop=_gprop(search_property),
             )
             default = self._req.interest_over_time()
             return _parsers.interest_over_time_to_result(default, keywords, self._req.geo)
@@ -173,15 +232,26 @@ class GoogleTrendsFetcher:
         self,
         keyword: str,
         resolution: Resolution,
-        region: Region = Region.US,
+        region: Region | str = Region.US,
+        *,
+        timeframe: Timeframe | str = Timeframe.PAST_YEAR,
+        category: int = 0,
+        search_property: SearchProperty | str = SearchProperty.WEB,
     ) -> InterestByRegionResult:
+        """
+        Where ``keyword`` is searched, broken down at ``resolution``.
+
+        ``timeframe`` defaults to the past year; narrow it to ask where something was searched
+        during a specific window rather than across the whole year.
+        """
+
         def run() -> InterestByRegionResult:
             self._req.build_payload(
                 [keyword],
-                cat=0,
-                timeframe=Timeframe.PAST_YEAR.value,
-                geo=region.value,
-                gprop="",
+                cat=category,
+                timeframe=_param(timeframe),
+                geo=_param(region),
+                gprop=_gprop(search_property),
             )
             default = self._req.interest_by_region(
                 resolution=resolution.value,
@@ -237,14 +307,29 @@ class GoogleTrendsFetcher:
 
         return self._with_rotation(auto)
 
-    def related_queries(self, keyword: str) -> RelatedResult:
+    def related_queries(
+        self,
+        keyword: str,
+        *,
+        timeframe: Timeframe | str = Timeframe.PAST_YEAR,
+        region: Region | str = Region.WORLDWIDE,
+        category: int = 0,
+        search_property: SearchProperty | str = SearchProperty.WEB,
+    ) -> RelatedResult:
+        """
+        Top and rising searches related to ``keyword``.
+
+        ``region`` defaults to worldwide, which is what this returned unconditionally before it
+        was a parameter -- pass a country to ask what is searched alongside the term *there*.
+        """
+
         def run() -> RelatedResult:
             self._req.build_payload(
                 [keyword],
-                cat=0,
-                timeframe=Timeframe.PAST_YEAR.value,
-                geo="",
-                gprop="",
+                cat=category,
+                timeframe=_param(timeframe),
+                geo=_param(region),
+                gprop=_gprop(search_property),
             )
             raw = self._req.related_queries()
             return _parsers.related_queries_to_result(raw, keyword)

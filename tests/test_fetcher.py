@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from trendflow._fetcher import (
     TRENDING_WINDOW_RISING,
     TRENDING_WINDOW_TOP,
@@ -13,7 +15,7 @@ from trendflow._fetcher import (
     _hl_from_language,
     _trending_geo,
 )
-from trendflow.enums import Region, Resolution, Timeframe
+from trendflow.enums import Region, Resolution, SearchProperty, Timeframe
 from trendflow.models import (
     InterestByRegionResult,
     InterestOverTimeResult,
@@ -287,3 +289,120 @@ class TestRelatedQueries:
 
         assert result.top == []
         assert result.rising == []
+
+
+class TestQueryFilters:
+    """
+    Category, search property, custom timeframes, and sub-regions.
+
+    Every one of these was supported by the session layer and pinned shut by the fetcher, which
+    passed ``cat=0, gprop=""`` on every call. These assert the values now reach the payload.
+    """
+
+    def test_category_and_property_reach_the_payload(self) -> None:
+        fetcher, req = _make_fetcher()
+        req.interest_over_time.return_value = {"timelineData": []}
+        req.geo = "US"
+
+        fetcher.interest_over_time(
+            keywords=["jaguar"],
+            timeframe=Timeframe.PAST_YEAR,
+            region=Region.US,
+            category=47,
+            search_property=SearchProperty.YOUTUBE,
+        )
+
+        req.build_payload.assert_called_once_with(
+            ["jaguar"],
+            cat=47,
+            timeframe="today 12-m",
+            geo="US",
+            gprop="youtube",
+        )
+
+    def test_custom_date_range_passes_through(self) -> None:
+        # Not an enum member: Google takes two ISO dates as the timeframe string.
+        fetcher, req = _make_fetcher()
+        req.interest_over_time.return_value = {"timelineData": []}
+        req.geo = "US"
+
+        fetcher.interest_over_time(
+            keywords=["jaguar"],
+            timeframe="2023-01-01 2023-06-30",
+            region="US-CA",
+        )
+
+        req.build_payload.assert_called_once_with(
+            ["jaguar"],
+            cat=0,
+            timeframe="2023-01-01 2023-06-30",
+            geo="US-CA",
+            gprop="",
+        )
+
+    def test_interest_by_region_takes_a_timeframe(self) -> None:
+        # It hard-coded the past year, so "where was this searched last week" was unanswerable.
+        fetcher, req = _make_fetcher()
+        req.interest_by_region.return_value = {"geoMapData": []}
+
+        fetcher.interest_by_region(
+            keyword="jaguar",
+            resolution=Resolution.REGION,
+            region=Region.US,
+            timeframe=Timeframe.PAST_WEEK,
+        )
+
+        assert req.build_payload.call_args.kwargs["timeframe"] == "now 7-d"
+
+    def test_related_queries_takes_a_region(self) -> None:
+        # It hard-coded worldwide, silently ignoring where the caller cared about.
+        fetcher, req = _make_fetcher()
+        req.related_queries.return_value = {}
+
+        fetcher.related_queries(keyword="jaguar", region=Region.GB)
+
+        assert req.build_payload.call_args.kwargs["geo"] == "GB"
+
+    def test_defaults_preserve_previous_behaviour(self) -> None:
+        fetcher, req = _make_fetcher()
+        req.interest_over_time.return_value = {"timelineData": []}
+        req.geo = ""
+
+        fetcher.interest_over_time(
+            keywords=["python"],
+            timeframe=Timeframe.PAST_YEAR,
+            region=Region.WORLDWIDE,
+        )
+
+        kwargs = req.build_payload.call_args.kwargs
+        assert kwargs["cat"] == 0
+        assert kwargs["gprop"] == ""
+
+
+class TestSearchPropertyValidation:
+    def test_unknown_property_is_rejected_before_any_request(self) -> None:
+        fetcher, req = _make_fetcher()
+
+        with pytest.raises(ValueError, match="search_property must be one of"):
+            fetcher.interest_over_time(
+                keywords=["python"],
+                timeframe=Timeframe.PAST_YEAR,
+                region=Region.US,
+                search_property="video",
+            )
+
+        req.build_payload.assert_not_called()
+
+    def test_plain_string_property_is_accepted(self) -> None:
+        fetcher, req = _make_fetcher()
+        req.interest_over_time.return_value = {"timelineData": []}
+        req.geo = "US"
+
+        fetcher.interest_over_time(
+            keywords=["python"],
+            timeframe=Timeframe.PAST_YEAR,
+            region=Region.US,
+            search_property="news",
+        )
+
+        assert req.build_payload.call_args.kwargs["gprop"] == "news"
